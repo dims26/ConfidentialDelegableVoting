@@ -1,4 +1,5 @@
-pragma solidity ^0.4.3;
+// pragma solidity ^0.4.3;
+pragma solidity <=0.8.1;
 
 /**
  * @title ECCMath
@@ -345,7 +346,7 @@ library Secp256k1 {
         uint dwPtr; // points to array of NAF coefficients.
         uint i;
 
-        // wNAF
+        // wNAF 
         assembly
         {
                 let dm := 0
@@ -452,6 +453,8 @@ contract owned {
  */
 contract AnonymousVoting is owned {
 
+  //todo use events to alert on notable happenings
+
   // Modulus for public keys
   uint constant pp = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
@@ -493,18 +496,18 @@ contract AnonymousVoting is owned {
 
   // List of timers that each phase MUST end by an explicit time in UNIX timestamp.
   // Ethereum works in SECONDS. Not milliseconds.
-  uint public finishSignupPhase; // Election Authority to transition to next phase.
+  uint public votersFinishSignupPhase; // Election Authority to transition to next phase.
   uint public endSignupPhase; // Election Authority does not transition to next phase by this time.
   uint public endCommitmentPhase; // Voters have not sent their commitments in by this time.
   uint public endVotingPhase; // Voters have not submitted their vote by this stage.
   uint public endRefundPhase; // Voters must claim their refund by this stage.
 
   uint public totalregistered; //Total number of participants that have submited a voting key
-  uint public totaleligible;
-  uint public totalcommitted;
-  uint public totalvoted;
-  uint public totalrefunded;
-  uint public totaltorefund;
+  uint public totaleligible; //Total number of participants that are white listed as eligible
+  uint public totalcommitted; //Total number of participants that have submitted commitments
+  uint public totalvoted; //Total number of participants that have submitted votes
+  uint public totalrefunded;//Total number of participants that have been refunded
+  uint public totaltorefund;//Total amount to be refunded???
 
   string public question;
   uint[2] public finaltally; // Final tally
@@ -550,6 +553,7 @@ contract AnonymousVoting is owned {
       throw;
     }
 
+    //todo(Dims): check that elligible + new additions don't go above limit(whatever it will eventually be set at)
     // Sign up the addresses
     for(uint i=0; i<addr.length; i++) {
 
@@ -563,16 +567,18 @@ contract AnonymousVoting is owned {
 
   // Owner of contract declares that eligible addresses begin round 1 of the protocol
   // Time is the number of 'blocks' we must wait until we can move onto round 2.
-  function beginSignUp(string _question, bool enableCommitmentPhase, uint _finishSignupPhase, uint _endSignupPhase, uint _endCommitmentPhase, uint _endVotingPhase, uint _endRefundPhase, uint _depositrequired) inState(State.SETUP) onlyOwner payable returns (bool){
+  function beginSignUp(string _question, bool enableCommitmentPhase, uint _votersFinishSignupPhase, 
+    uint _endSignupPhase, uint _endCommitmentPhase, uint _endVotingPhase, uint _endRefundPhase, 
+    uint _depositrequired) inState(State.SETUP) onlyOwner payable returns (bool){
 
     // We have lots of timers. let's explain each one
-    // _finishSignUpPhase - Voters should be signed up before this timer
+    // _votersFinishSignupPhase - Voters should be signed up before this timer
 
-    // Voter is refunded if any of the timers expire:
+    // Voter is REFUNDED IF any of the timers expire:
     // _endSignUpPhase - Election Authority never finished sign up phase
-    // _endCommitmentPhase - One or more voters did not send their commitments in time
+    // _endCommitmentPhase - One or more voters did not send their commitments in time(Cos of fault intolerant voting)
     // _endVotingPhase - One or more voters did not send their votes in time
-    // _endRefundPhase - Provide time for voters to get their money back.
+    // _endRefundPhase - Provide time for voters to get their money back.(Standard refund time if voting completes)
     // Why is there no endTally? Because anyone can call it!
 
     // Represented in UNIX time...
@@ -580,11 +586,14 @@ contract AnonymousVoting is owned {
     // TODO: Enforce gap to be at least 1 hour.. may break unit testing
     // Make sure 3 people are at least eligible to vote..
     // Deposit can be zero or more WEI
-    if(_finishSignupPhase > 0 + gap && addresses.length >= 3 && _depositrequired >= 0) {
+    if(_votersFinishSignupPhase > 0 + gap && //enforce min gap time
+     addresses.length >= 3 && //3 or more voters
+      _depositrequired >= 0 //non negative deposit
+      ) {
 
         // Ensure each time phase finishes in the future...
         // Ensure there is a gap of 'x time' between each phase.
-        if(_endSignupPhase-gap < _finishSignupPhase) {
+        if(_endSignupPhase-gap < _votersFinishSignupPhase) {
           return false;
         }
 
@@ -632,7 +641,7 @@ contract AnonymousVoting is owned {
       state = State.SIGNUP;
 
       // All timestamps should be in UNIX..
-      finishSignupPhase = _finishSignupPhase;
+      votersFinishSignupPhase = _votersFinishSignupPhase;
       endSignupPhase = _endSignupPhase;
       endCommitmentPhase = _endCommitmentPhase;
       endVotingPhase = _endVotingPhase;
@@ -748,7 +757,7 @@ contract AnonymousVoting is owned {
          }
 
          // Reset timers.
-         finishSignupPhase = 0;
+         votersFinishSignupPhase = 0;
          endSignupPhase = 0;
          endCommitmentPhase = 0;
          endVotingPhase = 0;
@@ -784,7 +793,7 @@ contract AnonymousVoting is owned {
   function register(uint[2] xG, uint[3] vG, uint r) inState(State.SIGNUP) payable returns (bool) {
 
      // HARD DEADLINE
-     if(block.timestamp > finishSignupPhase) {
+     if(block.timestamp > votersFinishSignupPhase) {
        throw; // throw returns the voter's ether, but exhausts their gas.
      }
 
@@ -803,7 +812,15 @@ contract AnonymousVoting is owned {
             // Update voter's registration
             uint[2] memory empty;
             addressid[msg.sender] = totalregistered;
-            voters[totalregistered] = Voter({addr: msg.sender, registeredkey: xG, reconstructedkey: empty, vote: empty, commitment: 0});
+            voters[totalregistered] = Voter(
+              {
+                addr: msg.sender, 
+                registeredkey: xG, 
+                reconstructedkey: empty, 
+                vote: empty, 
+                commitment: 0
+              }
+            );
             registered[msg.sender] = true;
             totalregistered += 1;
 
@@ -815,7 +832,8 @@ contract AnonymousVoting is owned {
   }
 
 
-  // Timer has expired - we want to start computing the reconstructed keys
+  // Timer has expired - we want to start computing the reconstructed keys for all voters
+  //Afterwards, we move to next phase (commitment or voting)
   function finishRegistrationPhase() inState(State.SIGNUP) onlyOwner returns(bool) {
 
 
@@ -827,7 +845,7 @@ contract AnonymousVoting is owned {
       // We can only compute the public keys once participants
       // have been given an opportunity to register their
       // voting public key.
-      if(block.timestamp < finishSignupPhase) {
+      if(block.timestamp < votersFinishSignupPhase) {
         return;
       }
 
@@ -841,7 +859,7 @@ contract AnonymousVoting is owned {
       uint[3] memory beforei;
       uint[3] memory afteri;
 
-      // Step 1 is to compute the index 1 reconstructed key
+      // Step 1 is to compute the index 0 reconstructed key i.e Y subscript 0
       afteri[0] = voters[1].registeredkey[0];
       afteri[1] = voters[1].registeredkey[1];
       afteri[2] = 1;
@@ -854,7 +872,7 @@ contract AnonymousVoting is owned {
       voters[0].reconstructedkey[0] = afteri[0];
       voters[0].reconstructedkey[1] = pp - afteri[1];
 
-      // Step 2 is to add to beforei, and subtract from afteri.
+      // Step 2 is to add to beforei, and subtract from afteri. Setting the reconstructed keys for every i > 0
      for(i=1; i<totalregistered; i++) {
 
        if(i==1) {
@@ -913,7 +931,7 @@ contract AnonymousVoting is owned {
    * voters to commit to their vote in advance.... and votes are only revealed
    * once all voters have committed. This way the final voter has no additional
    * advantage as they cannot change their vote depending on the tally.
-   * However... we cannot enforce the pre-image to be a hash, and someone could
+   * However... we cannot enforce the pre-image to be a hash, and someone could submit
    * a commitment that is not a vote. This will break the election, but you
    * will be able to determine who did it (and possibly punish them!).
    */
@@ -997,6 +1015,7 @@ contract AnonymousVoting is owned {
   // Election Authority gets deposit upon tallying.
   // TODO: Anyone can do this function. Perhaps remove refund code - and force Election Authority
   // to explicit withdraw it? Election cannot reset until he is refunded - so that should be OK
+  // todo Move election authority refund to its own method and update ABI. Plan is for anybody to call computeTally
   function computeTally() inState(State.VOTE) onlyOwner {
 
      uint[3] memory temp;
@@ -1044,7 +1063,8 @@ contract AnonymousVoting is owned {
        // Election Authority is responsible for calling this....
        // He should not fail his own refund...
        // Make sure tally is computed before refunding...
-       // TODO: Check if this is necessary
+       // TODO: Move election authority refund to its own method and update ABI. Plan is for anybody to call computeTally
+       // todo See if withdrawRefund() is viable for this
        refund = refunds[msg.sender];
        refunds[msg.sender] = 0;
 
@@ -1063,35 +1083,32 @@ contract AnonymousVoting is owned {
        tempG[1] = G[1];
        tempG[2] = 1;
 
-       // Start adding 'G' and looking for a match
-       for(i=1; i<=totalregistered; i++) {
+       // Start adding 'G' and looking for a match i.e exhaustive search. 
+       //todo: maybe we can implement any of the other methods for computing tally
+      for(i=1; i <= totalregistered; i++) {
+        if(temp[0] == tempG[0]) {
+          finaltally[0] = i;
+          finaltally[1] = totalregistered;
+          // Election Authority is responsible for calling this....
+          // He should not fail his own refund...
+          // Make sure tally is computed before refunding...
+          // TODO: Check if this is necessary
+          // If it fails - he can use withdrawRefund()
+          // Election cannot be reset until he is refunded.
+          refund = refunds[msg.sender];
+          refunds[msg.sender] = 0;
+          if (!msg.sender.send(refund)) {
+              refunds[msg.sender] = refund;
+          }
+          return;
+        }
 
-         if(temp[0] == tempG[0]) {
-             finaltally[0] = i;
-             finaltally[1] = totalregistered;
-
-             // Election Authority is responsible for calling this....
-             // He should not fail his own refund...
-             // Make sure tally is computed before refunding...
-             // TODO: Check if this is necessary
-             // If it fails - he can use withdrawRefund()
-             // Election cannot be reset until he is refunded.
-             refund = refunds[msg.sender];
-             refunds[msg.sender] = 0;
-
-             if (!msg.sender.send(refund)) {
-                refunds[msg.sender] = refund;
-             }
-             return;
-         }
-
-         // If something bad happens and we cannot find the Tally
-         // Then this 'addition' will be run 1 extra time due to how
-         // we have structured the for loop.
-         // TODO: Does it need fixed?
-         Secp256k1._addMixedM(tempG, G);
-           ECCMath.toZ1(tempG,pp);
-         }
+        //Don't run addition on last loop. Will this have a performance hit (gas?)
+        if(i != totalregistered) {
+          Secp256k1._addMixedM(tempG, G);
+          ECCMath.toZ1(tempG,pp);
+        }
+      }
 
          // Something bad happened. We should never get here....
          // This represents an error message... best telling people
