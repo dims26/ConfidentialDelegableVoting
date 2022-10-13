@@ -538,7 +538,7 @@ contract AnonymousVoting is owned {
   }
 
   // Owner of contract sets a whitelist of addresses that are eligible to vote.
-  function setEligible(address[] calldata addr) public onlyOwner {
+  function setEligible(address[] calldata addr) external onlyOwner {
 
     // todo Find nnumber we can support given improvements in Ethereum and other optimisations. Old limit(50)
     if(totaleligible > 50) {
@@ -561,7 +561,7 @@ contract AnonymousVoting is owned {
   // Time is the number of 'blocks' we must wait until we can move onto round 2.
   function beginSignUp(string calldata _question, bool enableCommitmentPhase, uint _votersFinishSignupPhase, 
     uint _endSignupPhase, uint _endCommitmentPhase, uint _endVotingPhase, uint _endRefundPhase, 
-    uint _depositrequired) inState(State.SETUP) public onlyOwner payable returns (bool){
+    uint _depositrequired) inState(State.SETUP) external onlyOwner payable returns (bool){
 
     // We have lots of timers. let's explain each one
     // _votersFinishSignupPhase - Voters should be signed up before this timer
@@ -651,7 +651,7 @@ contract AnonymousVoting is owned {
   // This function determines if one of the deadlines have been missed
   // If a deadline has been missed - then we finish the election,
   // and allocate refunds to the correct people depending on the situation.
-  function deadlinePassed() public returns (bool){
+  function deadlinePassed() external returns (bool){
 
       uint refund = 0;
 
@@ -782,7 +782,7 @@ contract AnonymousVoting is owned {
 
   // Called by participants to register their voting public key
   // Participant mut be eligible, and can only register the first key sent key.
-  function register(uint[2] calldata xG, uint[3] calldata vG, uint r) inState(State.SIGNUP) public payable returns (bool) {
+  function register(uint[2] calldata xG, uint[3] calldata vG, uint r) inState(State.SIGNUP) external payable returns (bool) {
 
      // HARD DEADLINE
      if(block.timestamp > votersFinishSignupPhase) {
@@ -826,7 +826,7 @@ contract AnonymousVoting is owned {
 
   // Timer has expired - we want to start computing the reconstructed keys for all voters
   //Afterwards, we move to next phase (commitment or voting)
-  function finishRegistrationPhase() inState(State.SIGNUP) public onlyOwner returns(bool) {
+  function finishRegistrationPhase() inState(State.SIGNUP) external onlyOwner returns(bool) {
 
 
       // Make sure at least 3 people have signed up...
@@ -928,7 +928,7 @@ contract AnonymousVoting is owned {
    * a commitment that is not a vote. This will break the election, but you
    * will be able to determine who did it (and possibly punish them!).
    */
-  function submitCommitment(bytes32 h) public inState(State.COMMITMENT) {
+  function submitCommitment(bytes32 h) external inState(State.COMMITMENT) {
 
      //All voters have a deadline to send their commitment
      if(block.timestamp > endCommitmentPhase) {
@@ -950,7 +950,7 @@ contract AnonymousVoting is owned {
 
   // Given the 1 out of 2 ZKP - record the users vote!
   function submitVote(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
-    uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2) public inState(State.VOTE) returns (bool) {
+    uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2) external inState(State.VOTE) returns (bool) {
 
      // HARD DEADLINE
      if(block.timestamp > endVotingPhase) {
@@ -1010,7 +1010,7 @@ contract AnonymousVoting is owned {
   // TODO: Anyone can do this function. Perhaps remove refund code - and force Election Authority
   // to explicit withdraw it? Election cannot reset until he is refunded - so that should be OK
   // todo Move election authority refund to its own method and update ABI. Plan is for anybody to call computeTally
-  function computeTally() public inState(State.VOTE) onlyOwner {
+  function computeTally() external inState(State.VOTE) onlyOwner {
 
      uint[3] memory temp;
      uint[2] memory vote;
@@ -1131,7 +1131,7 @@ contract AnonymousVoting is owned {
   // We can assume if the deadline has been missed - then refunds has ALREADY been updated to
   // take that into account. (a transaction is required to indicate a deadline has been missed
   // and in that transaction - we can penalise the non-active participants. lazy sods!)
-  function withdrawRefund() public inState(State.FINISHED){
+  function withdrawRefund() external inState(State.FINISHED){
 
     uint refund = refunds[msg.sender];
     refunds[msg.sender] = 0;
@@ -1154,7 +1154,7 @@ contract AnonymousVoting is owned {
   // Send the lost deposits to a charity. Anyone can call it.
   // Lost Deposit increments for each failed election. It is only
   // reset upon sending to the charity!
-  function sendToCharity() public {
+  function sendToCharity() external {
 
     // Only send this money to the owner
     uint profit = lostdeposit;
