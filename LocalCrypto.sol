@@ -9,28 +9,25 @@ pragma solidity ^0.8.17;
  * @author Andreas Olofsson (androlo1980@gmail.com)
  */
 library ECCMath_crypto {
-    /// @dev Modular inverse of a (mod p) using euclid.
-    /// "a" and "p" must be co-prime.
-    /// @param a The number.
-    /// @param p The mmodulus.
-    /// @return x such that ax = 1 (mod p)
-    function invmod(uint a, uint p) internal pure returns (uint) {
-        if (a == 0 || a == p || p == 0)
-            revert();
-        if (a > p)
-            a = a % p;
-        int t1;
-        int t2 = 1;
-        uint r1 = p;
-        uint r2 = a;
-        uint q;
-        while (r2 != 0) {
-            q = r1 / r2;
-            (t1, t2, r1, r2) = (t2, t1 - int(q) * t2, r2, r1 - q * r2);
+    // @author Witnet Foundation
+    //prev version relied on over/underflow
+    /// @dev Modular euclidean inverse of a number (mod p).
+    /// @param a The number
+    /// @param p The modulus
+    /// @return x such that a.x = 1 (mod p)
+    function invmod(uint a, uint256 p) internal pure returns (uint) {
+        require(a != 0 && a != p && p != 0, "a == 0 || a == p || p == 0");
+        uint x = 0;
+        uint t2 = 1;
+        uint r = p;
+        uint t1;
+        while (a != 0) {
+            t1 = r / a;
+            (x, t2) = (t2, addmod(x, (p - mulmod(t1, t2, p)), p));
+            (r, a) = (a, r - t1 * a);
         }
-        if (t1 < 0)
-            return (p - uint(-t1));
-        return uint(t1);
+
+        return x;
     }
 
     /// @dev Modular exponentiation, b^e % m
@@ -134,7 +131,7 @@ library Secp256k1_crypto {
     }
 
     /// @dev See Curve.validateSignature
-    function validateSignature(bytes32 message, uint[2] calldata rs, uint[2] calldata Q) internal pure returns (bool) {
+    function validateSignature(bytes32 message, uint[2] memory rs, uint[2] memory Q) internal pure returns (bool) {
         uint n = nn;
         uint p = pp;
         if(rs[0] == 0 || rs[0] >= n || rs[1] == 0 || rs[1] > lowSmax)
@@ -549,6 +546,7 @@ contract LocalCrypto {
   }
 
   // random 'w', 'r1', 'd1'
+  // if delegating, delegatee's xG
   function create1outof2ZKPNoVote(uint[2] calldata xG, uint[2] calldata  yG, uint w, uint r2, uint d2, uint x) public view returns (uint[10] memory res, uint[4] memory res2) {
       uint[2] memory temp_affine1;
       uint[2] memory temp_affine2;
@@ -637,6 +635,7 @@ contract LocalCrypto {
 
   // random 'w', 'r1', 'd1'
   // TODO: Make constant
+  // if delegating, delegatee's xG
   function create1outof2ZKPYesVote(uint[2] calldata xG, uint[2] calldata yG, uint w, uint r1, uint d1, uint x) public view returns (uint[10] memory res, uint[4] memory res2) {
       // y = h^{x} * g
       // h^{x} seems to be same as g^{x*y}

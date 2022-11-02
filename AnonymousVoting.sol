@@ -9,28 +9,25 @@ pragma solidity ^0.8.17;
  * @author Andreas Olofsson (androlo1980@gmail.com)
  */
 library ECCMath {
-    /// @dev Modular inverse of a (mod p) using euclid.
-    /// "a" and "p" must be co-prime.
-    /// @param a The number.
-    /// @param p The mmodulus.
-    /// @return x such that ax = 1 (mod p)
-    function invmod(uint a, uint p) internal pure returns (uint) {
-        if (a == 0 || a == p || p == 0)
-            revert();
-        if (a > p)
-            a = a % p;
-        int t1;
-        int t2 = 1;
-        uint r1 = p;
-        uint r2 = a;
-        uint q;
-        while (r2 != 0) {
-            q = r1 / r2;
-            (t1, t2, r1, r2) = (t2, t1 - int(q) * t2, r2, r1 - q * r2);
+    // @author Witnet Foundation
+    //prev version relied on over/underflow
+    /// @dev Modular euclidean inverse of a number (mod p).
+    /// @param a The number
+    /// @param p The modulus
+    /// @return x such that a.x = 1 (mod p)
+    function invmod(uint a, uint256 p) internal pure returns (uint) {
+        require(a != 0 && a != p && p != 0, "a == 0 || a == p || p == 0");
+        uint x = 0;
+        uint t2 = 1;
+        uint r = p;
+        uint t1;
+        while (a != 0) {
+            t1 = r / a;
+            (x, t2) = (t2, addmod(x, (p - mulmod(t1, t2, p)), p));
+            (r, a) = (a, r - t1 * a);
         }
-        if (t1 < 0)
-            return (p - uint(-t1));
-        return uint(t1);
+
+        return x;
     }
 
     /// @dev Modular exponentiation, b^e % m
@@ -469,6 +466,8 @@ contract AnonymousVoting is owned {
   mapping (address => bool) public votecast; // Address voted?
   mapping (address => bool) public commitment; // Have we received their commitment?
   mapping (address => uint) public refunds; // Have we received their commitment?
+  mapping (address => address) public delegations; //Has voter delegated their vote (delegators -> delegatees)
+  mapping (address => uint[]) public delegators; //Who has delegated to this address (delegatees -> delegators[])
 
   struct Voter {
       address addr;
@@ -711,7 +710,6 @@ contract AnonymousVoting is owned {
               refunds[voters[i].addr] = 0;
               lostdeposit = lostdeposit + refund;
             } else {
-
               // Lets make sure refund has not already been issued...
               if(refunds[voters[i].addr] > 0) {
                 // We will need to refund this person.
@@ -746,6 +744,12 @@ contract AnonymousVoting is owned {
             addressid[addr] = 0; // Remove index
             votecast[addr] = false; // Remove that vote was cast
             commitment[addr] = false;
+            if (delegations[addr] != address(0x00)){//remove mapping to delegatee
+              delete delegations[addr];
+            }
+            if (delegators[addr].length > 0) {//remove mapping to all its delegators
+              delete delegators[addr];
+            }
          }
 
          // Reset timers.
@@ -823,11 +827,24 @@ contract AnonymousVoting is owned {
     return false;
   }
 
+  // Delegate a voter's vote to another voter. Can only be called in signup phase
+  function delegate(address _delegatee) inState(State.SIGNUP) external returns (bool) {
+    // HARD DEADLINE
+    require(block.timestamp < votersFinishSignupPhase, "Past signup deadline");
+    require(registered[msg.sender] && registered[_delegatee] && delegations[_delegatee] == address(0x0),
+      "Delegator and delegatee must be registered, and delegatee must not have delegated their vote");
+
+    // delegator and delegatee are both registered, and delegatee has not already delegated their own vote
+    delegations[msg.sender] = _delegatee;
+    delegators[_delegatee].push(addressid[msg.sender]);
+
+    return true;
+  }
+
 
   // Timer has expired - we want to start computing the reconstructed keys for all voters
   //Afterwards, we move to next phase (commitment or voting)
   function finishRegistrationPhase() inState(State.SIGNUP) external onlyOwner returns(bool) {
-
 
       // Make sure at least 3 people have signed up...
       if(totalregistered < 3) {
@@ -852,12 +869,26 @@ contract AnonymousVoting is owned {
       uint[3] memory afteri;
 
       // Step 1 is to compute the index 0 reconstructed key i.e Y subscript 0
-      afteri[0] = voters[1].registeredkey[0];
-      afteri[1] = voters[1].registeredkey[1];
-      afteri[2] = 1;
+      if(delegations[voters[1].addr] == address(0x0)) {
+        afteri[0] = voters[1].registeredkey[0];
+        afteri[1] = voters[1].registeredkey[1];
+        afteri[2] = 1;
+      } else {
+        //if voter at index 1 has delegated their vote, use the key of the delegatee
+        uint delegateIndex = addressid[delegations[voters[1].addr]];
+        afteri[0] = voters[delegateIndex].registeredkey[0];
+        afteri[1] = voters[delegateIndex].registeredkey[1];
+        afteri[2] = 1;
+      }
 
       for(uint i=2; i<totalregistered; i++) {
-         Secp256k1._addMixedM(afteri, voters[i].registeredkey);
+        if (delegations[voters[i].addr] == address(0x0)) {
+          Secp256k1._addMixedM(afteri, voters[i].registeredkey);
+        } else {
+          //If voter at index i has delegated their vote, use the key of the delegatee
+          uint delegateIndex = addressid[delegations[voters[1].addr]];
+          Secp256k1._addMixedM(afteri, voters[delegateIndex].registeredkey);
+        }
       }
 
       ECCMath.toZ1(afteri,pp);
@@ -868,11 +899,23 @@ contract AnonymousVoting is owned {
      for(uint i=1; i<totalregistered; i++) {
 
        if(i==1) {
-         beforei[0] = voters[0].registeredkey[0];
-         beforei[1] = voters[0].registeredkey[1];
-         beforei[2] = 1;
+        if (delegations[voters[0].addr] == address(0x0)) {
+          beforei[0] = voters[0].registeredkey[0];
+          beforei[1] = voters[0].registeredkey[1];
+          beforei[2] = 1;
+        } else {
+          uint delegateIndex = addressid[delegations[voters[0].addr]];
+          beforei[0] = voters[delegateIndex].registeredkey[0];
+          beforei[1] = voters[delegateIndex].registeredkey[1];
+          beforei[2] = 1;
+        }
        } else {
-         Secp256k1._addMixedM(beforei, voters[i-1].registeredkey);
+        if (delegations[voters[0].addr] == address(0x0)) {
+          Secp256k1._addMixedM(beforei, voters[i-1].registeredkey);
+        } else {
+          uint delegateIndex = addressid[delegations[voters[i-1].addr]];
+          Secp256k1._addMixedM(beforei, voters[delegateIndex].registeredkey);
+        }
        }
 
        // If we have reached the end... just store beforei
@@ -882,12 +925,17 @@ contract AnonymousVoting is owned {
          ECCMath.toZ1(beforei,pp);
          voters[i].reconstructedkey[0] = beforei[0];
          voters[i].reconstructedkey[1] = beforei[1];
-
        } else {
 
           // Subtract 'i' from afteri
-          temp[0] = voters[i].registeredkey[0];
-          temp[1] = pp - voters[i].registeredkey[1];
+          if (delegations[voters[0].addr] == address(0x0)){
+            temp[0] = voters[i].registeredkey[0];
+            temp[1] = pp - voters[i].registeredkey[1];
+          } else {
+            uint delegateIndex = addressid[delegations[voters[i].addr]];
+            temp[0] = voters[delegateIndex].registeredkey[0];
+            temp[1] = pp - voters[delegateIndex].registeredkey[1];
+          }
 
           // Grab negation of afteri (did not seem to work with Jacob co-ordinates)
           Secp256k1._addMixedM(afteri,temp);
@@ -931,9 +979,8 @@ contract AnonymousVoting is owned {
   function submitCommitment(bytes32 h) external inState(State.COMMITMENT) {
 
      //All voters have a deadline to send their commitment
-     if(block.timestamp > endCommitmentPhase) {
-       return;
-     }
+     require(block.timestamp < endCommitmentPhase, "Commitment phase closed");
+     require(delegations[msg.sender] == address(0x00), "Can't be called after delegating vote");
 
     if(!commitment[msg.sender]) {
         commitment[msg.sender] = true;
@@ -948,14 +995,86 @@ contract AnonymousVoting is owned {
     }
   }
 
+  function submitCommitment(bytes32 h, address delegator) external inState(State.COMMITMENT) {
+    //All voters have a deadline to send their commitment
+     require(block.timestamp < endCommitmentPhase, "Commitment phase closed");
+     require(delegations[delegator] == msg.sender, "You haven't been delegated to vote on their behalf");
+
+     if(!commitment[delegator]) {
+      commitment[delegator] = true;
+      uint index = addressid[delegator];
+      voters[index].commitment = h;
+      totalcommitted = totalcommitted + 1;
+
+      // Once we have recorded all commitments... let voters vote!
+      if(totalcommitted == totalregistered) {
+        state = State.VOTE;
+      }
+     }
+  }
+
+  // Given the 1 out of 2 ZKP, and delegator address - record the users vote!
+  function submitVote(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
+    uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2, address delegator) external inState(State.VOTE) returns (bool) {
+
+     //All voters have a deadline to vote
+     require(block.timestamp < endVotingPhase, "Voting phase closed");
+     require(delegations[delegator] == msg.sender, "You haven't been delegated to vote on their behalf");
+
+     uint c = addressid[delegator];
+
+     // Make sure the sender can vote, and hasn't already voted.
+     if(registered[delegator] && !votecast[delegator]) {
+
+       // OPTIONAL Phase: Voters need to commit to their vote in advance.
+       // Time to verify if this vote matches the voter's previous commitment.
+       if(commitmentphase) {
+
+         // Voter has previously committed to the entire zero knowledge proof...
+         bytes32 h = keccak256(abi.encodePacked(msg.sender, params, voters[c].registeredkey, voters[c].reconstructedkey, y, a1, b1, a2, b2));
+
+         // No point verifying the ZKP if it doesn't match the voter's commitment.
+         if(voters[c].commitment != h) {
+           return false;
+         }
+       }
+
+       // Verify the ZKP for the vote being cast
+       if(verify1outof2ZKP(params, y, a1, b1, a2, b2, c)) {
+         voters[c].vote[0] = y[0];
+         voters[c].vote[1] = y[1];
+
+         votecast[delegator] = true;
+
+         totalvoted += 1;
+
+         // Refund the sender their ether..
+         // Voter has finished their part of the protocol...
+         uint refund = refunds[delegator];//send delegator's refund to delegatee (INCENTIVE)
+         refunds[delegator] = 0;
+
+         // We can still fail... Safety first.
+         // If failed... voter can call withdrawRefund()
+         // to collect their money once the election has finished.
+         if (!payable(msg.sender).send(refund)) {
+            refunds[delegator] = refund;
+         }
+
+         return true;
+       }
+     }
+
+     // Either vote has already been cast, or ZKP verification failed.
+     return false;
+  }
+
   // Given the 1 out of 2 ZKP - record the users vote!
   function submitVote(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
     uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2) external inState(State.VOTE) returns (bool) {
 
-     // HARD DEADLINE
-     if(block.timestamp > endVotingPhase) {
-       return false;
-     }
+     //All voters have a deadline to send their vote
+     require(block.timestamp < endVotingPhase, "Voting phase closed");
+     require(delegations[msg.sender] == address(0x00), "Can't be called after delegating vote");
 
      uint c = addressid[msg.sender];
 
@@ -976,7 +1095,7 @@ contract AnonymousVoting is owned {
        }
 
        // Verify the ZKP for the vote being cast
-       if(verify1outof2ZKP(params, y, a1, b1, a2, b2)) {
+       if(verify1outof2ZKP(params, y, a1, b1, a2, b2, c)) {
          voters[c].vote[0] = y[0];
          voters[c].vote[1] = y[1];
 
@@ -1136,10 +1255,21 @@ contract AnonymousVoting is owned {
     uint refund = refunds[msg.sender];
     refunds[msg.sender] = 0;
 
-    if (!payable(msg.sender).send(refund)) {
+    address delegatee = delegations[msg.sender];
+    // If you delegated and the vote has been cast
+    if (delegatee != address(0x00) && votecast[msg.sender]) {
+      if (!payable(delegatee).send(refund)) {
        refunds[msg.sender] = refund;
+      } else {
+        // Tell everyone we have issued the refund.
+        // Owner is not included in refund counter.
+        if(msg.sender != owner) {
+          totalrefunded = totalrefunded + 1;
+        }
+      }
+    } else if (!payable(msg.sender).send(refund)) {// All other cases, try to refund
+       refunds[msg.sender] = refund;// If refund fails
     } else {
-
       // Tell everyone we have issued the refund.
       // Owner is not included in refund counter.
       // This is OK - we cannot reset election until
@@ -1150,6 +1280,24 @@ contract AnonymousVoting is owned {
       }
     }
   }
+
+  function withdrawRefund(address delegator) external inState(State.FINISHED){
+
+    require(delegations[delegator] == msg.sender, "Must have been delegated to by delegator");
+    require(votecast[delegator], "Vote for delegator must have been cast");
+
+    uint refund = refunds[delegator];
+    refunds[delegator] = 0;
+
+    if (!payable(msg.sender).send(refund)) {// All other cases, try to refund
+       refunds[delegator] = refund;// If refund fails
+    } else {
+      // Tell everyone we have issued the refund.
+      totalrefunded = totalrefunded + 1;
+    }
+  }
+
+  
 
   // Send the lost deposits to a charity. Anyone can call it.
   // Lost Deposit increments for each failed election. It is only
@@ -1204,13 +1352,10 @@ contract AnonymousVoting is owned {
 
   // We verify that the ZKP is of 0 or 1.
   function verify1outof2ZKP(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
-    uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2) public view returns (bool) {
+    uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2, uint i) public view returns (bool) {
       uint[2] memory temp1;
       uint[3] memory temp2;
       uint[3] memory temp3;
-
-      // Voter Index
-      uint i = addressid[msg.sender];
 
       // We already have them stored...
       // TODO: Decide if this should be in SubmitVote or here...
