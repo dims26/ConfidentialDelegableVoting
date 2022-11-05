@@ -1,0 +1,15 @@
+{
+  "name": "electionscript",
+  "version": "1.0.0",
+  "description": "Script to simulate election given governing parameters",
+  "main": "election.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Adedimeji Sebiotimo",
+  "license": "ISC",
+  "dependencies": {
+    "web3": "^1.8.0"
+  }
+}
