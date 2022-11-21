@@ -333,7 +333,7 @@ library Secp256k1 {
     function _mul(uint d, uint[2] memory P) internal pure returns (uint[3] memory Q) {
         uint p = pp;
         if (d == 0)
-            return Q;
+            return Q; //todo change back to return Q
         uint dwPtr; // points to array of NAF coefficients.
         uint i;
 
@@ -396,8 +396,10 @@ library Secp256k1 {
             uint pIdx;
             i--;
             assembly {
-                dj := byte(0, mload(add(dwPtr, i)))
+                dj := mload(add(dwPtr, i))
             }
+            bytes1 djBytes = bytes32(dj)[0];
+            dj = uint(uint8(djBytes));
             _doubleM(Q);
             if (dj > 16) {
                 pIdx = (31 - dj) / 2; // These are the "negative ones", so invert y.
@@ -409,7 +411,7 @@ library Secp256k1 {
             }
         }
     }
-
+    
 }
 
 
@@ -790,7 +792,7 @@ contract AnonymousVoting is owned {
 
      // HARD DEADLINE
      if(block.timestamp > votersFinishSignupPhase) {
-       revert(); // throw returns the voter's ether, but exhausts their gas.
+       revert('Past registration deadline'); // throw returns the voter's ether, but exhausts their gas.
      }
 
     // Make sure the ether being deposited matches what we expect.

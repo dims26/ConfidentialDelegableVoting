@@ -1,0 +1,562 @@
+[
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "params",
+				"type": "uint256[4]"
+			},
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "yG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "y",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "a1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "b1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "a2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "b2",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "commitToVote",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "yG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "w",
+				"type": "uint256"
+			},
+			{
+				"name": "r2",
+				"type": "uint256"
+			},
+			{
+				"name": "d2",
+				"type": "uint256"
+			},
+			{
+				"name": "x",
+				"type": "uint256"
+			}
+		],
+		"name": "create1outof2ZKPNoVote",
+		"outputs": [
+			{
+				"name": "res",
+				"type": "uint256[10]"
+			},
+			{
+				"name": "res2",
+				"type": "uint256[4]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "r1",
+				"type": "uint256"
+			},
+			{
+				"name": "r2",
+				"type": "uint256"
+			},
+			{
+				"name": "r3",
+				"type": "uint256"
+			},
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "createEqualityProof",
+		"outputs": [
+			{
+				"name": "t",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "n",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "n",
+				"type": "uint256"
+			},
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "t",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "verifyEqualityProof",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "h",
+				"type": "uint256"
+			},
+			{
+				"name": "t",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "computeFirstHalfEquality",
+		"outputs": [
+			{
+				"name": "left",
+				"type": "uint256[2]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "a",
+				"type": "uint256"
+			},
+			{
+				"name": "b",
+				"type": "uint256"
+			}
+		],
+		"name": "submod",
+		"outputs": [
+			{
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "c",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "r",
+				"type": "uint256"
+			},
+			{
+				"name": "b",
+				"type": "uint256"
+			}
+		],
+		"name": "openCommitment",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "x",
+				"type": "uint256"
+			},
+			{
+				"name": "v",
+				"type": "uint256"
+			},
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "createZKP",
+		"outputs": [
+			{
+				"name": "res",
+				"type": "uint256[4]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "b1",
+				"type": "uint256"
+			},
+			{
+				"name": "b2",
+				"type": "uint256"
+			},
+			{
+				"name": "r1",
+				"type": "uint256"
+			},
+			{
+				"name": "r2",
+				"type": "uint256"
+			},
+			{
+				"name": "r3",
+				"type": "uint256"
+			},
+			{
+				"name": "r4",
+				"type": "uint256"
+			},
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "createInequalityProof",
+		"outputs": [
+			{
+				"name": "t1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "t2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "n1",
+				"type": "uint256"
+			},
+			{
+				"name": "n2",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "r",
+				"type": "uint256"
+			},
+			{
+				"name": "b",
+				"type": "uint256"
+			}
+		],
+		"name": "createCommitment",
+		"outputs": [
+			{
+				"name": "",
+				"type": "uint256[2]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "params",
+				"type": "uint256[4]"
+			},
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "yG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "y",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "a1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "b1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "a2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "b2",
+				"type": "uint256[2]"
+			}
+		],
+		"name": "verify1outof2ZKP",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "yG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "w",
+				"type": "uint256"
+			},
+			{
+				"name": "r1",
+				"type": "uint256"
+			},
+			{
+				"name": "d1",
+				"type": "uint256"
+			},
+			{
+				"name": "x",
+				"type": "uint256"
+			}
+		],
+		"name": "create1outof2ZKPYesVote",
+		"outputs": [
+			{
+				"name": "res",
+				"type": "uint256[10]"
+			},
+			{
+				"name": "res2",
+				"type": "uint256[4]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "t2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "h",
+				"type": "uint256"
+			}
+		],
+		"name": "computeSecondHalfInequality",
+		"outputs": [
+			{
+				"name": "right",
+				"type": "uint256[3]"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "c1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "c2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "t1",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "t2",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "n1",
+				"type": "uint256"
+			},
+			{
+				"name": "n2",
+				"type": "uint256"
+			}
+		],
+		"name": "verifyInequalityProof",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "xG",
+				"type": "uint256[2]"
+			},
+			{
+				"name": "r",
+				"type": "uint256"
+			},
+			{
+				"name": "vG",
+				"type": "uint256[3]"
+			}
+		],
+		"name": "verifyZKP",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"type": "function",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"inputs": [],
+		"payable": false,
+		"type": "constructor",
+		"stateMutability": "nonpayable"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"name": "x1",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"name": "x2",
+				"type": "uint256"
+			}
+		],
+		"name": "Debug",
+		"type": "event"
+	}
+]

@@ -10,6 +10,9 @@
   "author": "Adedimeji Sebiotimo",
   "license": "ISC",
   "dependencies": {
+    "@noble/secp256k1": "^1.7.0",
+    "bignumber.js": "^9.1.0",
+    "ganache": "^7.5.0",
     "web3": "^1.8.0"
   }
 }

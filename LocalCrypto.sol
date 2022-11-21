@@ -330,10 +330,10 @@ library Secp256k1_crypto {
     // Multiplication dP. P affine, wNAF: w=5
     // Params: d, Px, Py
     // Output: Jacobian Q
-    function _mul(uint d, uint[2] memory P) internal pure returns (uint[3] memory Q) {
+    function _mul(uint d, uint[2] memory P) public pure returns (uint[3] memory Q) {
         uint p = pp;
         if (d == 0)
-            return Q;
+            return Q; //todo change back to return Q
         uint dwPtr; // points to array of NAF coefficients.
         uint i;
 
@@ -396,8 +396,10 @@ library Secp256k1_crypto {
             uint pIdx;
             i--;
             assembly {
-                dj := byte(0, mload(add(dwPtr, i)))
+                dj := mload(add(dwPtr, i))
             }
+            bytes1 djBytes = bytes32(dj)[0];
+            dj = uint(uint8(djBytes));
             _doubleM(Q);
             if (dj > 16) {
                 pIdx = (31 - dj) / 2; // These are the "negative ones", so invert y.
@@ -463,14 +465,14 @@ contract LocalCrypto {
   // c = H(g, g^{v}, g^{x});
   // r = v - xz (mod p);
   // return(r,vG)
-  function createZKP(uint x, uint v, uint[2] calldata xG) public returns (uint[4] memory res) {
+  function createZKP(uint x, uint v, uint[2] calldata xG) public view returns (uint[4] memory res) {
 
       uint[2] memory _G;
-      G[0] = Gx;
-      G[1] = Gy;
+      _G[0] = Gx;
+      _G[1] = Gy;
 
       if(!Secp256k1_crypto.isPubKey(xG)) {
-          revert(); //Must be on the curve!
+          revert("xG is not a public key"); //Must be on the curve!
       }
 
       // Get g^{v}
