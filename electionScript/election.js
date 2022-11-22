@@ -246,9 +246,15 @@ async function registerDelegations() {
 }
 
 async function finishRegistration() {
-    //todo admin closes registration once voter registration deadline is reached
-    await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
+    //wait till voter registration deadline is reached + buffer
+    console.log("WAITING FOR VOTER REGISTRATION DEADLINE...")
+    await new Promise(resolve => setTimeout(resolve, (deadlines.votersFinishSignup - Date.now()) + 1000))
 
+    await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
+    //we need a do nothing function to update block number and block time
+    await voteCon.methods.doNothing().send({from: admin})
+
+    //admin closes registration once voter registration deadline is reached
     let isRegistrationEnded = await voteCon.methods.finishRegistrationPhase().call({from: admin})
     console.log(`Is registration ended: ${isRegistrationEnded}`)
     if(isRegistrationEnded) {
@@ -280,20 +286,20 @@ async function subComm(voter) {
     }
     // console.log(`One out of two ZKP: ${JSON.stringify(zkp)}`)
 
-    let y = [zkp[0][0], zkp[0][1]]
-    let a1 = [zkp[0][2], zkp[0][3]]
-    let b1 = [zkp[0][4], zkp[0][5]]
-    let a2 = [zkp[0][6], zkp[0][7]]
-    let b2 = [zkp[0][8], zkp[0][9]]
-    let params = [zkp[1][0], zkp[1][1], zkp[1][2], zkp[1][3]]
+    voter.y = [zkp[0][0], zkp[0][1]]
+    voter.a1 = [zkp[0][2], zkp[0][3]]
+    voter.b1 = [zkp[0][4], zkp[0][5]]
+    voter.a2 = [zkp[0][6], zkp[0][7]]
+    voter.b2 = [zkp[0][8], zkp[0][9]]
+    voter.params = [zkp[1][0], zkp[1][1], zkp[1][2], zkp[1][3]]
 
     // verify 1 out of 2 ZKP
     let index = await voteCon.methods.addressid(voter.address).call({from: voter.address})
-    let result = await voteCon.methods.verify1outof2ZKP(params, y, a1, b1, a2, b2, index).call({from: voter.address})
+    let result = await voteCon.methods.verify1outof2ZKP(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2, index).call({from: voter.address})
     console.log(`ZKP verified: ${JSON.stringify(result)}\n`)
 
     //submit committment
-    let hash = await cryptoCon.methods.commitToVote(params, xG, yG, y, a1, b1, a2, b2).call({from: voter.address})
+    let hash = await cryptoCon.methods.commitToVote(voter.params, xG, yG, voter.y, voter.a1, voter.b1, voter.a2, voter.b2).call({from: voter.address})
     await voteCon.methods.submitCommitment(hash).send({from: voter.address,gas: 4200000})
 }
 
@@ -325,32 +331,32 @@ async function subDelComm(delegator) {
     }
     // console.log(`One out of two ZKP: ${JSON.stringify(zkp)}`)
 
-    let y = [zkp[0][0], zkp[0][1]]
-    let a1 = [zkp[0][2], zkp[0][3]]
-    let b1 = [zkp[0][4], zkp[0][5]]
-    let a2 = [zkp[0][6], zkp[0][7]]
-    let b2 = [zkp[0][8], zkp[0][9]]
-    let params = [zkp[1][0], zkp[1][1], zkp[1][2], zkp[1][3]]
+    delegatorVals.y = [zkp[0][0], zkp[0][1]]
+    delegatorVals.a1 = [zkp[0][2], zkp[0][3]]
+    delegatorVals.b1 = [zkp[0][4], zkp[0][5]]
+    delegatorVals.a2 = [zkp[0][6], zkp[0][7]]
+    delegatorVals.b2 = [zkp[0][8], zkp[0][9]]
+    delegatorVals.params = [zkp[1][0], zkp[1][1], zkp[1][2], zkp[1][3]]
 
     // verify 1 out of 2 ZKP
     let delegatorIndex = await voteCon.methods.addressid(delegator).call({from: delegatee})
     console.log(`Delegator index: ${delegatorIndex}`)
-    let result = await voteCon.methods.verify1outof2ZKP(params, y, a1, b1, a2, b2, delegatorIndex).call({from: delegatee})
+    let result = await voteCon.methods.verify1outof2ZKP(delegatorVals.params, delegatorVals.y, delegatorVals.a1, delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegatorIndex).call({from: delegatee})
     console.log(`ZKP verified: ${JSON.stringify(result)}\n`)
 
     //submit committment
-    let hash = await cryptoCon.methods.commitToVote(params, delegateeVals.xG, yG, y, a1, b1, a2, b2).call({from: delegatee})
+    let hash = await cryptoCon.methods.commitToVote(delegatorVals.params, delegateeVals.xG, yG, delegatorVals.y, delegatorVals.a1, delegatorVals.b1, delegatorVals.a2, delegatorVals.b2).call({from: delegatee})
     await voteCon.methods.submitCommitment(hash, delegator).send({from: delegatee, gas: 4200000})
 }
 
 async function submitCommitments() {
     //for each voter that has NOT delegated, generate the appropriate values for commitment and commit vote
-    for (const voter of voters){
+    for (const voter of voters) {
         await subComm(voter)
     }
 
     await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
-    console.log(`Num non-delegated commitments: ${await voteCon.methods.totalcommitted().call({from: admin})}`)
+    console.log(`Num non-delegated commitments: ${await voteCon.methods.totalcommitted().call({from: admin})}\n`)
 
     //for each voter that has delegated, generate the appropriate values for commitment and commit vote
     for (const delegator of Object.keys(delegations)){
@@ -358,7 +364,80 @@ async function submitCommitments() {
     }
 
     await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
-    console.log(`Num total commitments: ${await voteCon.methods.totalcommitted().call({from: admin})}`)
+    console.log(`Num total commitments: ${await voteCon.methods.totalcommitted().call({from: admin})}\n`)
+
+    console.log(`Election now in state: ${states[await voteCon.methods.state().call({from: admin})]}\n`)
+}
+
+async function subVote(voter) {
+    if (delegations[voter.address] != null) {//return if vote delegated
+        return
+    }
+    console.log(`Voting for voter ${voter.address}`)
+    await web3.eth.personal.unlockAccount(voter.address, "")
+
+    let canVote = await voteCon.methods.submitVote(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2)
+    .call({from: voter.address})
+    console.log(`Can vote: ${canVote}`)
+    if (
+        canVote
+    ) {
+        await voteCon.methods.submitVote(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2)
+        .send({from: voter.address, gas: 30000000})// 30 million gas limit set
+    } else throw `Failed to submit vote for voter ${voter.address}`
+
+    console.log(`Voter ${voter.address} has submitted vote successfully\n`)
+}
+
+async function subDelVote(delegator) {
+    console.log(`Voting on behalf of delegator ${delegator}`)
+
+    let delegatee = delegations[delegator]
+    await web3.eth.personal.unlockAccount(delegatee, "")
+
+    let delegatorVals = voters.find(v => v.address === delegator)
+
+    if (
+        await voteCon.methods
+        .submitVote(delegatorVals.params, delegatorVals.y, delegatorVals.a1, 
+            delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegator)
+        .call({from: delegatee})
+    ) {
+        await voteCon.methods
+        .submitVote(delegatorVals.params, delegatorVals.y, delegatorVals.a1, 
+            delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegator)
+        .send({from: delegatee, gas: 30000000})//30 million gas limit set
+    } else throw `Failed to submit vote for delegator ${delegator}`
+
+    console.log(`Delegatee ${delegatee} has submitted vote successfully for delegator ${delegator}\n`)
+}
+
+async function submitVotes() {
+    //for each voter(ignoring delegators), cast vote
+    for (const voter of voters) {
+        await subVote(voter)
+    }
+
+    await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
+    console.log(`Num non-delegated votes: ${await voteCon.methods.totalvoted().call({from: admin})}\n`)
+
+    //for each delegator, delegatee casts vote on behalf of delegator
+    for (const delegator of Object.keys(delegations)){
+        await subDelVote(delegator)
+    }
+
+    await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
+    console.log(`Num total votes: ${await voteCon.methods.totalvoted().call({from: admin})}\n`)
+}
+
+async function computeTally() {
+    await web3.eth.personal.unlockAccount(admin, "")
+    await voteCon.methods.computeTally().send({ from: admin, gas: 4200000 })
+    let numYes = await voteCon.methods.finaltally(0).call({from: admin})
+    let numTotal = await voteCon.methods.finaltally(1).call({from: admin})
+    console.log(`Final tally: ${numYes} Yes votes out of ${numTotal} total votes\n`)
+
+    console.log(`Election now in state: ${states[await voteCon.methods.state().call({from: admin})]}\n`)
 }
 
 async function conductProtocol() {
@@ -377,21 +456,17 @@ async function conductProtocol() {
     await registerDelegations()
     console.log('Delegation completed\n')
 
-    //wait till voter registration deadline is reached + buffer
-    console.log("WAITING FOR VOTER REGISTRATION DEADLINE...")
-    await new Promise(resolve => setTimeout(resolve, (deadlines.votersFinishSignup - Date.now()) + 1000))
-    await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
-    //we need a do nothing function to update block number and timestamp
-    await voteCon.methods.doNothing().send({from: admin})
-    console.log(`${deadlines.votersFinishSignup} vs ${Date.now()}`)
-
     //Admin finishes registration
     await finishRegistration()
 
     //create commitments
     await submitCommitments()
 
-    //todo commitment, creating and verifying oneOutOfTwoZKPs(fix _mul), casting votes and delegates votes
+    //cast votes
+    await submitVotes()
+
+    //compute tally
+    await computeTally()
 }
 
 await conductProtocol()

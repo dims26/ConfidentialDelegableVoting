@@ -411,7 +411,162 @@ library Secp256k1 {
             }
         }
     }
-    
+
+    /// @dev Multiply point (x1, y1, z1) times d in affine coordinates.
+    /// @param _k scalar to multiply
+    /// @param _x coordinate x of P1
+    /// @param _y coordinate y of P1
+    /// @param _pp the modulus
+    /// @return (qx, qy) = d*P in affine coordinates
+    function ecMul(
+      uint256 _k,
+      uint256 _x,
+      uint256 _y,
+      uint256 _pp) internal pure returns(uint256, uint256, uint256) {
+      // Jacobian multiplication
+      (uint256 x1, uint256 y1, uint256 z1) = jacMul(
+        _k,
+        _x,
+        _y,
+        1,
+        0,
+        _pp);
+      
+      return (x1, y1, z1);
+    }
+
+    /// @dev Multiply point (x, y, z) times d.
+    /// @param _d scalar to multiply
+    /// @param _x coordinate x of P1
+    /// @param _y coordinate y of P1
+    /// @param _z coordinate z of P1
+    /// @param _aa constant of curve
+    /// @param _pp the modulus
+    /// @return (qx, qy, qz) d*P1 in Jacobian
+    function jacMul(uint256 _d, uint256 _x, uint256 _y,
+      uint256 _z, uint256 _aa, uint256 _pp) internal pure returns (uint256, uint256, uint256) {
+        // Early return in case that `_d == 0`
+        if (_d == 0) {
+          return (_x, _y, _z);
+        }
+
+        uint256 remaining = _d;
+        uint256 qx = 0;
+        uint256 qy = 0;
+        uint256 qz = 1;
+
+        // Double and add algorithm
+        while (remaining != 0) {
+          if ((remaining & 1) != 0) {
+            (qx, qy, qz) = jacAdd(
+              qx,
+              qy,
+              qz,
+              _x,
+              _y,
+              _z,
+              _pp);
+          }
+          remaining = remaining / 2;
+          (_x, _y, _z) = jacDouble(
+            _x,
+            _y,
+            _z,
+            _aa,
+            _pp);
+        }
+        return (qx, qy, qz);
+    }
+
+    /// @dev Adds two points (x1, y1, z1) and (x2 y2, z2).
+    /// @param _x1 coordinate x of P1
+    /// @param _y1 coordinate y of P1
+    /// @param _z1 coordinate z of P1
+    /// @param _x2 coordinate x of square
+    /// @param _y2 coordinate y of square
+    /// @param _z2 coordinate z of square
+    /// @param _pp the modulus
+    /// @return (qx, qy, qz) P1+square in Jacobian
+    function jacAdd(uint256 _x1, uint256 _y1, uint256 _z1,
+      uint256 _x2, uint256 _y2, uint256 _z2, uint256 _pp) internal pure returns (uint256, uint256, uint256) {
+        if (_x1==0 && _y1==0)
+          return (_x2, _y2, _z2);
+        if (_x2==0 && _y2==0)
+          return (_x1, _y1, _z1);
+
+        // We follow the equations described in https://pdfs.semanticscholar.org/5c64/29952e08025a9649c2b0ba32518e9a7fb5c2.pdf Section 5
+        uint[4] memory zs; // z1^2, z1^3, z2^2, z2^3
+        zs[0] = mulmod(_z1, _z1, _pp);
+        zs[1] = mulmod(_z1, zs[0], _pp);
+        zs[2] = mulmod(_z2, _z2, _pp);
+        zs[3] = mulmod(_z2, zs[2], _pp);
+
+        // u1, s1, u2, s2
+        zs = [
+          mulmod(_x1, zs[2], _pp),
+          mulmod(_y1, zs[3], _pp),
+          mulmod(_x2, zs[0], _pp),
+          mulmod(_y2, zs[1], _pp)
+        ];
+
+        // In case of zs[0] == zs[2] && zs[1] == zs[3], double function should be used
+        require(zs[0] != zs[2] || zs[1] != zs[3], "Use jacDouble function instead");
+
+        uint[4] memory hr;
+        //h
+        hr[0] = addmod(zs[2], _pp - zs[0], _pp);
+        //r
+        hr[1] = addmod(zs[3], _pp - zs[1], _pp);
+        //h^2
+        hr[2] = mulmod(hr[0], hr[0], _pp);
+        // h^3
+        hr[3] = mulmod(hr[2], hr[0], _pp);
+        // qx = -h^3  -2u1h^2+r^2
+        uint256 qx = addmod(mulmod(hr[1], hr[1], _pp), _pp - hr[3], _pp);
+        qx = addmod(qx, _pp - mulmod(2, mulmod(zs[0], hr[2], _pp), _pp), _pp);
+        // qy = -s1*z1*h^3+r(u1*h^2 -x^3)
+        uint256 qy = mulmod(hr[1], addmod(mulmod(zs[0], hr[2], _pp), _pp - qx, _pp), _pp);
+        qy = addmod(qy, _pp - mulmod(zs[1], hr[3], _pp), _pp);
+        // qz = h*z1*z2
+        uint256 qz = mulmod(hr[0], mulmod(_z1, _z2, _pp), _pp);
+        return(qx, qy, qz);
+    }
+
+    /// @dev Doubles a points (x, y, z).
+    /// @param _x coordinate x of P1
+    /// @param _y coordinate y of P1
+    /// @param _z coordinate z of P1
+    /// @param _aa the a scalar in the curve equation
+    /// @param _pp the modulus
+    /// @return (qx, qy, qz) 2P in Jacobian
+    function jacDouble(uint256 _x, uint256 _y, uint256 _z,
+      uint256 _aa, uint256 _pp) internal pure returns (uint256, uint256, uint256) {
+        if (_z == 0)
+          return (_x, _y, _z);
+
+        // We follow the equations described in https://pdfs.semanticscholar.org/5c64/29952e08025a9649c2b0ba32518e9a7fb5c2.pdf Section 5
+        // Note: there is a bug in the paper regarding the m parameter, M=3*(x1^2)+a*(z1^4)
+        // x, y, z at this point represent the squares of _x, _y, _z
+        uint256 x = mulmod(_x, _x, _pp); //x1^2
+        uint256 y = mulmod(_y, _y, _pp); //y1^2
+        uint256 z = mulmod(_z, _z, _pp); //z1^2
+
+        // s
+        uint s = mulmod(4, mulmod(_x, y, _pp), _pp);
+        // m
+        uint m = addmod(mulmod(3, x, _pp), mulmod(_aa, mulmod(z, z, _pp), _pp), _pp);
+
+        // x, y, z at this point will be reassigned and rather represent qx, qy, qz from the paper
+        // This allows to reduce the gas cost and stack footprint of the algorithm
+        // qx
+        x = addmod(mulmod(m, m, _pp), _pp - addmod(s, s, _pp), _pp);
+        // qy = -8*y1^4 + M(S-T)
+        y = addmod(mulmod(m, addmod(s, _pp - x, _pp), _pp), _pp - mulmod(8, mulmod(y, y, _pp), _pp), _pp);
+        // qz = 2*y1*z1
+        z = mulmod(2, mulmod(_y, _z, _pp), _pp);
+
+        return (x, y, z);
+    }
 }
 
 
@@ -823,7 +978,7 @@ contract AnonymousVoting is owned {
             totalregistered += 1;
 
             return true;
-        }
+        } revert("Not verified or registered");
     }
 
     return false;
@@ -840,6 +995,10 @@ contract AnonymousVoting is owned {
     delegations[msg.sender] = _delegatee;
     delegators[_delegatee].push(addressid[msg.sender]);
 
+    return true;
+  }
+
+  function doNothing() external pure returns (bool) {
     return true;
   }
 
@@ -888,7 +1047,7 @@ contract AnonymousVoting is owned {
           Secp256k1._addMixedM(afteri, voters[i].registeredkey);
         } else {
           //If voter at index i has delegated their vote, use the key of the delegatee
-          uint delegateIndex = addressid[delegations[voters[1].addr]];
+          uint delegateIndex = addressid[delegations[voters[i].addr]];
           Secp256k1._addMixedM(afteri, voters[delegateIndex].registeredkey);
         }
       }
@@ -912,7 +1071,7 @@ contract AnonymousVoting is owned {
           beforei[2] = 1;
         }
        } else {
-        if (delegations[voters[0].addr] == address(0x0)) {
+        if (delegations[voters[i-1].addr] == address(0x0)) {
           Secp256k1._addMixedM(beforei, voters[i-1].registeredkey);
         } else {
           uint delegateIndex = addressid[delegations[voters[i-1].addr]];
@@ -930,7 +1089,7 @@ contract AnonymousVoting is owned {
        } else {
 
           // Subtract 'i' from afteri
-          if (delegations[voters[0].addr] == address(0x0)){
+          if (delegations[voters[i].addr] == address(0x0)){
             temp[0] = voters[i].registeredkey[0];
             temp[1] = pp - voters[i].registeredkey[1];
           } else {
@@ -1033,7 +1192,7 @@ contract AnonymousVoting is owned {
        if(commitmentphase) {
 
          // Voter has previously committed to the entire zero knowledge proof...
-         bytes32 h = keccak256(abi.encodePacked(msg.sender, params, voters[c].registeredkey, voters[c].reconstructedkey, y, a1, b1, a2, b2));
+         bytes32 h = keccak256(abi.encodePacked(msg.sender, params, voters[addressid[delegations[delegator]]].registeredkey, voters[c].reconstructedkey, y, a1, b1, a2, b2));
 
          // No point verifying the ZKP if it doesn't match the voter's commitment.
          if(voters[c].commitment != h) {
@@ -1142,7 +1301,7 @@ contract AnonymousVoting is owned {
 
          // Confirm all votes have been cast...
          if(!votecast[voters[i].addr]) {
-            revert();
+            revert("All voters have not been cast");
          }
 
          vote = voters[i].vote;
@@ -1320,10 +1479,7 @@ contract AnonymousVoting is owned {
 
   // Parameters xG, r where r = v - xc, and vG.
   // Verify that vG = rG + xcG!
-  function verifyZKP(uint[2] calldata xG, uint r, uint[3] calldata vG) public view returns (bool){
-      uint[2] memory _G;
-      _G[0] = Gx;
-      _G[1] = Gy;
+  function verifyZKP(uint[2] memory xG, uint256 r, uint[3] memory vG) private view returns (bool){
 
       // Check both keys are on the curve.
       if(!Secp256k1.isPubKey(xG) || !Secp256k1.isPubKey(vG)) {
@@ -1334,9 +1490,14 @@ contract AnonymousVoting is owned {
       bytes32 b_c = sha256(abi.encodePacked(msg.sender, Gx, Gy, xG, vG));
       uint c = uint(b_c);
 
+      uint x;
+      uint y;
+      uint z;
+      (x,y,z) = Secp256k1.ecMul(r, G[0], G[1], pp);
       // Get g^{r}, and g^{xc}
-      uint[3] memory rG = Secp256k1._mul(r, _G);
-      uint[3] memory xcG = Secp256k1._mul(c, xG);
+      uint[3] memory rG = [x, y, z];
+      (x,y,z) = Secp256k1.ecMul(c, xG[0], xG[1], pp);
+      uint[3] memory xcG = [x, y, z];
 
       // Add both points together
       uint[3] memory rGxcG = Secp256k1._add(rG,xcG);
@@ -1352,17 +1513,31 @@ contract AnonymousVoting is owned {
       }
   }
 
+  struct mulRes {
+    uint k;
+    uint l;
+    uint m;
+    uint c;
+    uint[2] temp1;
+    uint[3] temp2;
+    uint[3] temp3;
+  }
+
   // We verify that the ZKP is of 0 or 1.
   function verify1outof2ZKP(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
     uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2, uint i) public view returns (bool) {
-      uint[2] memory temp1;
-      uint[3] memory temp2;
-      uint[3] memory temp3;
+      mulRes memory mR;
 
       // We already have them stored...
       // TODO: Decide if this should be in SubmitVote or here...
       uint[2] memory yG = voters[i].reconstructedkey;
-      uint[2] memory xG = voters[i].registeredkey;
+      uint[2] memory xG;
+      if (delegations[voters[i].addr] == address(0x00)) {
+        xG = voters[i].registeredkey;
+      } else {
+        // Delegatee is msg.sender
+        xG = voters[addressid[delegations[voters[i].addr]]].registeredkey;
+      }
 
       // Make sure we are only dealing with valid public keys!
       if(!Secp256k1.isPubKey(xG) || !Secp256k1.isPubKey(yG) || !Secp256k1.isPubKey(y) || !Secp256k1.isPubKey(a1) ||
@@ -1375,61 +1550,69 @@ contract AnonymousVoting is owned {
         return false;
       }
 
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[2], G[0], G[1], pp);
       // a1 =? g^{r1} * x^{d1}
-      temp2 = Secp256k1._mul(params[2], G);
-      temp3 = Secp256k1._add(temp2, Secp256k1._mul(params[0], xG));
-      ECCMath.toZ1(temp3, pp);
+      mR.temp2 = [mR.k,mR.l,mR.m];
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[0], xG[0], xG[1], pp);
+      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMath.toZ1(mR.temp3, pp);
 
-      if(a1[0] != temp3[0] || a1[1] != temp3[1]) {
+      if(a1[0] != mR.temp3[0] || a1[1] != mR.temp3[1]) {
         return false;
       }
 
       //b1 =? h^{r1} * y^{d1} (temp = affine 'y')
-      temp2 = Secp256k1._mul(params[2],yG);
-      temp3 = Secp256k1._add(temp2, Secp256k1._mul(params[0], y));
-      ECCMath.toZ1(temp3, pp);
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[2], yG[0], yG[1], pp);
+      mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[0], y[0], y[1], pp);
+      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMath.toZ1(mR.temp3, pp);
 
-      if(b1[0] != temp3[0] || b1[1] != temp3[1]) {
+      if(b1[0] != mR.temp3[0] || b1[1] != mR.temp3[1]) {
         return false;
       }
 
       //a2 =? g^{r2} * x^{d2}
-      temp2 = Secp256k1._mul(params[3],G);
-      temp3 = Secp256k1._add(temp2, Secp256k1._mul(params[1], xG));
-      ECCMath.toZ1(temp3, pp);
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[3], G[0], G[1], pp);
+      mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[1], xG[0], xG[1], pp);
+      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMath.toZ1(mR.temp3, pp);
 
-      if(a2[0] != temp3[0] || a2[1] != temp3[1]) {
+      if(a2[0] != mR.temp3[0] || a2[1] != mR.temp3[1]) {
         return false;
       }
 
       // Negate the 'y' co-ordinate of g
-      temp1[0] = G[0];
-      temp1[1] = pp - G[1];
+      mR.temp1[0] = G[0];
+      mR.temp1[1] = pp - G[1];
 
       // get 'y'
-      temp3[0] = y[0];
-      temp3[1] = y[1];
-      temp3[2] = 1;
+      mR.temp3[0] = y[0];
+      mR.temp3[1] = y[1];
+      mR.temp3[2] = 1;
 
       // y-g
-      temp2 = Secp256k1._addMixed(temp3,temp1);
+      mR.temp2 = Secp256k1._addMixed(mR.temp3,mR.temp1);
 
       // Return to affine co-ordinates
-      ECCMath.toZ1(temp2, pp);
-      temp1[0] = temp2[0];
-      temp1[1] = temp2[1];
+      ECCMath.toZ1(mR.temp2, pp);
+      mR.temp1[0] = mR.temp2[0];
+      mR.temp1[1] = mR.temp2[1];
 
       // (y-g)^{d2}
-      temp2 = Secp256k1._mul(params[1],temp1);
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[1], mR.temp1[0], mR.temp1[1], pp);
+      mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
 
       // Now... it is h^{r2} + temp2..
-      temp3 = Secp256k1._add(Secp256k1._mul(params[3],yG),temp2);
+      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[3], yG[0], yG[1], pp);
+      mR.temp3 = Secp256k1._add([mR.k,mR.l,mR.m],mR.temp2);//todo fix
 
       // Convert to Affine Co-ordinates
-      ECCMath.toZ1(temp3, pp);
+      ECCMath.toZ1(mR.temp3, pp);
 
       // Should all match up.
-      if(b2[0] != temp3[0] || b2[1] != temp3[1]) {
+      if(b2[0] != mR.temp3[0] || b2[1] != mR.temp3[1]) {
         return false;
       }
 
