@@ -1,0 +1,74 @@
+setEligible duration: 43 millis and gas used: 531487 for 10 voters
+beginSignUp duration: 12millis and gas used: 235715
+createZKP LOCAL CALL duration: 105millis for 1 voter
+verifyZKP LOCAL CALL duration: 198millis for 1 voter
+register duration: 322millis and gas used: 1390434 for 1 voter
+createZKP LOCAL CALL duration: 100millis for 1 voter
+verifyZKP LOCAL CALL duration: 182millis for 1 voter
+register duration: 318millis and gas used: 1391638 for 1 voter
+createZKP LOCAL CALL duration: 96millis for 1 voter
+verifyZKP LOCAL CALL duration: 185millis for 1 voter
+register duration: 337millis and gas used: 1455800 for 1 voter
+createZKP LOCAL CALL duration: 98millis for 1 voter
+verifyZKP LOCAL CALL duration: 190millis for 1 voter
+register duration: 325millis and gas used: 1398833 for 1 voter
+createZKP LOCAL CALL duration: 103millis for 1 voter
+verifyZKP LOCAL CALL duration: 196millis for 1 voter
+register duration: 336millis and gas used: 1430699 for 1 voter
+createZKP LOCAL CALL duration: 103millis for 1 voter
+verifyZKP LOCAL CALL duration: 198millis for 1 voter
+register duration: 318millis and gas used: 1360136 for 1 voter
+createZKP LOCAL CALL duration: 101millis for 1 voter
+verifyZKP LOCAL CALL duration: 193millis for 1 voter
+register duration: 328millis and gas used: 1394773 for 1 voter
+createZKP LOCAL CALL duration: 102millis for 1 voter
+verifyZKP LOCAL CALL duration: 200millis for 1 voter
+register duration: 330millis and gas used: 1387485 for 1 voter
+createZKP LOCAL CALL duration: 101millis for 1 voter
+verifyZKP LOCAL CALL duration: 195millis for 1 voter
+register duration: 347millis and gas used: 1437193 for 1 voter
+createZKP LOCAL CALL duration: 104millis for 1 voter
+verifyZKP LOCAL CALL duration: 199millis for 1 voter
+register duration: 336millis and gas used: 1405668 for 1 voter
+finishRegistrationPhase (reconstructedKeys) duration: 355millis and gas used: 1795382 for 10 voters
+create1outof2ZKPYesVote LOCAL CALL duration: 717millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1291millis for 1 voter
+submitCommitment duration: 8millis and gas used: 99486 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 674millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1302millis for 1 voter
+submitCommitment duration: 7millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 669millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1274millis for 1 voter
+submitCommitment duration: 6millis and gas used: 82374 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 650millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1242millis for 1 voter
+submitCommitment duration: 6millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 701millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1270millis for 1 voter
+submitCommitment duration: 6millis and gas used: 82374 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 676millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1277millis for 1 voter
+submitCommitment duration: 7millis and gas used: 82386 for 1 voter
+create1outof2ZKPNoVote LOCAL CALL duration: 768millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1272millis for 1 voter
+submitCommitment duration: 7millis and gas used: 82386 for 1 voter
+create1outof2ZKPNoVote LOCAL CALL duration: 770millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1284millis for 1 voter
+submitCommitment duration: 6millis and gas used: 82374 for 1 voter
+create1outof2ZKPNoVote LOCAL CALL duration: 767millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1264millis for 1 voter
+submitCommitment duration: 6millis and gas used: 82374 for 1 voter
+create1outof2ZKPNoVote LOCAL CALL duration: 753millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1206millis for 1 voter
+submitCommitment duration: 6millis and gas used: 85410 for 1 voter
+submitVote duration: 1278millis and gas used: 5098700 for 1 voter
+submitVote duration: 1321millis and gas used: 5237109 for 1 voter
+submitVote duration: 1717millis and gas used: 5362718 for 1 voter
+submitVote duration: 1551millis and gas used: 5312900 for 1 voter
+submitVote duration: 1392millis and gas used: 5380078 for 1 voter
+submitVote duration: 1589millis and gas used: 5305590 for 1 voter
+submitVote duration: 1363millis and gas used: 5287655 for 1 voter
+submitVote duration: 1410millis and gas used: 5388388 for 1 voter
+submitVote duration: 1381millis and gas used: 5364118 for 1 voter
+submitVote duration: 1276millis and gas used: 5151357 for 1 voter
+computeTally duration: 115millis and gas used: 623757 for 10 voters

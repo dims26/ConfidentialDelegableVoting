@@ -1,4 +1,5 @@
-0x9b3d890d8afeb3db74be3da3ee04165b70290da6
-0x82602a7e82a1d81de8d5aec401412331786267b9
-0x3b393625b732a1ffc2c514fc2e53c1f163a1e207:0x45ad73e3f0f5508f3ba6980d4c0bd8cd17d4c5dc,0x723877fe4eb1e2066e165168d43e8675d498a217:0x45ad73e3f0f5508f3ba6980d4c0bd8cd17d4c5dc
-0x2f9cca94fbf4d5a1e29e8d4ae59cbf5f12136fb9,0x45ad73e3f0f5508f3ba6980d4c0bd8cd17d4c5dc
+<Admin address>
+<Charity address>
+<The gap parameter of the AnonymousVoting smart contract>
+<delegator 1 address>: <delegatee address>,<delegator 2 address>: <delegatee address>
+<address of voter voting NO>, <address of voter voting NO>

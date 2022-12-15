@@ -1,35 +1,36 @@
-import Web3 from 'web3';
+import Web3 from 'web3'
 import * as fs from 'fs/promises'
+import * as fsn from 'fs'
 import * as secp256k1 from '@noble/secp256k1'
-import { BigNumber } from "@ethersproject/bignumber"
 
-const CRYPTO_ADDR = '--cryptoAddr';
-const VOTE_ADDR = '--voteAddr';
-const URL = '--url';
-const CRYPTO_ABI_PATH = './abis/cryptoAbi.json';
-const VOTE_ABI_PATH = './abis/voteAbi.json';
-const PHASE_GAP = 40;
-const WEI_DEPOSIT = '5000000000000000000';
+const CRYPTO_ADDR = '--cryptoAddr'
+const VOTE_ADDR = '--voteAddr'
+const URL = '--url'
+const CRYPTO_ABI_PATH = './abis/cryptoAbi.json'
+const VOTE_ABI_PATH = './abis/voteAbi.json'
+const WEI_DEPOSIT = '5000000000000000000'
 const states = ['SETUP', 'SIGNUP', 'COMMITMENT', 'VOTE', 'FINISHED']
+const GAS_LIMIT = 30_000_000
 
-let web3;
-let rawArgsList;
-let flags = [URL, VOTE_ADDR, CRYPTO_ADDR];
-let flagValues = ['', '', ''];
-let admin;
-let charity;
-let addressMap = {};
-let voteAbi;
-let cryptoAbi;
-let voteCon;
-let cryptoCon;
-let delegations = {};
-let deadlines = {};
-let noVotes = [];
-let voters = [];
+let timeCheck = 0
+let gasCheck = 0
+let phaseGap = 0
 
-console.log('ARGS')
-console.log(process.argv)
+let web3
+let rawArgsList
+let flags = [URL, VOTE_ADDR, CRYPTO_ADDR]
+let flagValues = ['', '', '']
+let admin
+let charity
+let addressMap = {}
+let voteAbi
+let cryptoAbi
+let voteCon
+let cryptoCon
+let delegations = {}
+let deadlines = {}
+let noVotes = []
+let voters = []
 
 function getVoter(addr) {
     return {
@@ -56,10 +57,21 @@ function extractArgs() {
     console.log(flagValues)
 }
 
+function logWriter(value, firstCall = false) {
+    if (firstCall)
+        fsn.writeFile('logSummary.txt', value, err => {
+            if (err) console.error(err)
+        })
+    else
+        fsn.appendFile('logSummary.txt', value, err => {
+            if (err) console.error(err)
+        })
+}
+
 async function readAccountInfo() {
     try {
-        let data = await fs.readFile('accountKeys.json', { encoding: 'utf8' });
-        let obj = JSON.parse(data);
+        let data = await fs.readFile('accountKeys.json', { encoding: 'utf8' })
+        let obj = JSON.parse(data)
         let privKeys = obj.private_keys
         console.log('ACCOUNT ADDRESS TO KEYS')
         for (const property in obj.addresses) {
@@ -68,14 +80,14 @@ async function readAccountInfo() {
         console.log(addressMap)
       } catch (err) {
         console.log('ACCOUNT KEYS ERROR')
-        console.log(err);
+        console.log(err)
       }
 }
 
 async function readConfig() {
-    let data;
+    let data
     try {
-        data = (await fs.readFile('electionConfig.txt', { encoding: 'utf8' })).split(/\r?\n/);
+        data = (await fs.readFile('electionConfig.txt', { encoding: 'utf8' })).split(/\r?\n/)
     } catch(err) {
         console.log('ELECTION CONFIG READ ERR')
         console.log(err)
@@ -83,21 +95,26 @@ async function readConfig() {
 
     admin = data[0]
     charity = data[1]
+    phaseGap = parseInt(data[2])
     if (!Object.keys(addressMap).includes(admin)) throw 'SPECIFIED ADMIN NOT IN "accountKeys.json"'
     if (!Object.keys(addressMap).includes(charity)) throw 'SPECIFIED CHARITY NOT IN "accountKeys.json"'
 
-    data[2].split(',').forEach(pair => {
-        let p = pair.split(':');
-        if (!Object.keys(addressMap).includes(p[0].trim())) throw `Delegator ${p[0].trim()} not in "accountKeys.json`
-        if (!Object.keys(addressMap).includes(p[1].trim())) throw `Delegatee ${p[1].trim()} not in "accountKeys.json`
-        if (p[1].trim() in delegations) throw `${p[1].trim()} already delegated their vote. Can't delegate to them`
-        else delegations[p[0].trim()] = p[1].trim()
-    })
+    if (data[3] && data[3].trim().length !== 0) {
+        data[3].split(',').forEach(pair => {
+            let p = pair.split(':')
+            if (!Object.keys(addressMap).includes(p[0].trim())) throw `Delegator ${p[0].trim()} not in "accountKeys.json`
+            if (!Object.keys(addressMap).includes(p[1].trim())) throw `Delegatee ${p[1].trim()} not in "accountKeys.json`
+            if (p[1].trim() in delegations) throw `${p[1].trim()} already delegated their vote. Can't delegate to them`
+            else delegations[p[0].trim()] = p[1].trim()
+        })
+    }
 
-    data[3].split(',').forEach(addr => {
-        if (!Object.keys(addressMap).includes(addr)) throw 'Specified Address not in "accountKeys.json"'
-        noVotes.push(addr)
-    })
+    if (data[4] && data[4].trim().length !== 0) {
+        data[4].split(',').forEach(addr => {
+            if (!Object.keys(addressMap).includes(addr)) throw 'Specified Address not in "accountKeys.json"'
+            noVotes.push(addr)
+        })
+    }
 
     console.log('ADMIN, CHARITY, AND DELEGATIONS')
     console.log(admin)
@@ -115,7 +132,7 @@ async function readConfig() {
 }
 
 function setupConnections() {
-    web3 = new Web3(new Web3.providers.HttpProvider(flagValues[flags.indexOf(URL)]));
+    web3 = new Web3(new Web3.providers.HttpProvider(flagValues[flags.indexOf(URL)]))
 
     voteCon = new web3.eth.Contract(JSON.parse(voteAbi), flagValues[flags.indexOf(VOTE_ADDR)])
     cryptoCon = new web3.eth.Contract(JSON.parse(cryptoAbi), flagValues[flags.indexOf(CRYPTO_ADDR)])
@@ -125,30 +142,33 @@ function setupConnections() {
 async function initElection() {
     let x = await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
     let now = Math.floor(Date.now()/1000)//timestamp in seconds
-    
-    console.log("DEPOSIT AND ELIGIBLE")
-    console.log(await voteCon.methods.depositrequired().call())
-    console.log(await voteCon.methods.totaleligible().call())
 
     voters = Object.keys(addressMap).filter(add => add != admin && add != charity).map(addr => getVoter(addr))
 
     //set eligible voters
-    await voteCon.methods.setEligible(voters.map(v => v.address)).send({from: admin, gas: 4200000})
+    timeCheck = Date.now()
+    gasCheck = (await voteCon.methods.setEligible(voters.map(v => v.address)).send({from: admin, gas: GAS_LIMIT})).gasUsed
+    logWriter(`setEligible duration: ${(Date.now()-timeCheck)} millis and gas used: ${gasCheck} for ${voters.length} voters\n`, true)
 
+    console.log("ELIGIBLE")
     console.log(await voteCon.methods.totaleligible().call())
-    console.log(await voteCon.methods.depositrequired().call())
 
     //begin voter registration
     if (await voteCon.methods.beginSignUp('Voting question', true,
-    (now + PHASE_GAP), (now + (PHASE_GAP * 2)), (now +  (PHASE_GAP * 3)), (now +  (PHASE_GAP * 4)), (now +  (PHASE_GAP * 5)), 
+    (now + phaseGap), (now + (phaseGap * 2)), (now +  (phaseGap * 3)), (now +  (phaseGap * 4)), (now +  (phaseGap * 5)), 
     WEI_DEPOSIT).call({from: admin, value: WEI_DEPOSIT})) {
-        var res = await voteCon.methods.beginSignUp('Voting question', true, 
-        (now + PHASE_GAP), (now + (PHASE_GAP * 2)), (now +  (PHASE_GAP * 3)), (now +  (PHASE_GAP * 4)), (now +  (PHASE_GAP * 5)), 
-        WEI_DEPOSIT).send({from: admin, gas: 4200000, value: WEI_DEPOSIT});
-        console.log(res)
+        timeCheck = Date.now()
+        gasCheck = (await voteCon.methods.beginSignUp('Voting question', true, 
+        (now + phaseGap), (now + (phaseGap * 2)), (now +  (phaseGap * 3)), (now +  (phaseGap * 4)), (now +  (phaseGap * 5)), 
+        WEI_DEPOSIT).send({from: admin, gas: GAS_LIMIT, value: WEI_DEPOSIT})).gasUsed
+        logWriter(`beginSignUp duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck}\n`)
     } else {
         throw 'Ethereum rejected deadlines set OR insuffient number of addresses set as eligible'
     }
+
+    console.log("DEPOSIT")
+    console.log(await voteCon.methods.depositrequired().call())
+    console.log("")
 
     //deadlines from contract
     console.log("CONTRACT DEADLINES")
@@ -162,7 +182,7 @@ async function initElection() {
 }
 
 async function regVoter(voter) {
-    let voterLogin = await web3.eth.personal.unlockAccount(voter.address, "");
+    let voterLogin = await web3.eth.personal.unlockAccount(voter.address, "")
     console.log(`voter ${voter.address} logged in : ${voterLogin}`)
 
     // set voter x, v, r, d and xG. Generate ZKP for voter.
@@ -179,40 +199,46 @@ async function regVoter(voter) {
             voter.d = `0x${secp256k1.utils.bytesToHex(secp256k1.utils.randomPrivateKey())}`
 
             // We prove knowledge of the voting key
-            var zkp = await cryptoCon.methods.createZKP(voter.x, voter.v, voter.xG).call({from: voter.address, gas: 4200000});
+            timeCheck = Date.now()
+            var zkp = await cryptoCon.methods.createZKP(voter.x, voter.v, voter.xG).call({from: voter.address, gas: GAS_LIMIT})
+            logWriter(`createZKP LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 voter\n`)
             break
         } catch(error) {
             console.log(`voter ${voter.address} zkp error`)
         }
     }
-    let vG = [zkp[1], zkp[2], zkp[3]];
+    let vG = [zkp[1], zkp[2], zkp[3]]
 
     console.log(`CREATED ZKP FOR VOTER ${voter.address}`)
-    // console.log(zkp)
-    // console.log(voter)
 
     // Lets make sure the ZKP is valid!
-    let verifyZkp = await cryptoCon.methods.verifyZKP(voter.xG, zkp[0], vG).call({from: voter.address, gas: 4200000});
+    timeCheck = Date.now()
+    let verifyZkp = await cryptoCon.methods.verifyZKP(voter.xG, zkp[0], vG).call({from: voter.address, gas: GAS_LIMIT})
+    logWriter(`verifyZKP LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 voter\n`)
 
     console.log(`ZKP VERIFIED: ${verifyZkp}`)
     if (!verifyZkp) {
         throw `Problem with voting codes. Couldn't verify ZKP for voter ${voter.address}`
     }
 
-    var canRegister = await voteCon.methods.register(voter.xG, vG, zkp[0]).call({from: voter.address, value: WEI_DEPOSIT});
+    var canRegister = await voteCon.methods.register(voter.xG, vG, zkp[0]).call({from: voter.address, value: WEI_DEPOSIT})
+    
+
     console.log(`CAN REGISTER: ${canRegister}`)
 
     // Submit voting key to the network
     if (canRegister) {
-        await voteCon.methods.register(voter.xG, vG, zkp[0]).send({
+        timeCheck = Date.now()
+        gasCheck = (await voteCon.methods.register(voter.xG, vG, zkp[0]).send({
             from: voter.address,
-            gas: 4200000,
+            gas: GAS_LIMIT,
             value: WEI_DEPOSIT
-        });
+        })).gasUsed
+        logWriter(`register duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 voter\n`)
         console.log(`voter ${voter.address} is registered`)
         console.log("")
     } else {
-        throw `Registration failed for voter ${voter.address}`;
+        throw `Registration failed for voter ${voter.address}`
     }
 }
 
@@ -233,12 +259,14 @@ async function registerDelegations() {
 
     for (const delegator of delegators) {
         let delegatee = delegations[delegator]
-        let delegatorLogin = await web3.eth.personal.unlockAccount(delegator, "");
+        let delegatorLogin = await web3.eth.personal.unlockAccount(delegator, "")
         console.log(`Delegator ${delegator} logged in : ${delegatorLogin}`)
 
-        let isDelSuccessful = await voteCon.methods.delegate(delegatee).call({from: delegator});
+        let isDelSuccessful = await voteCon.methods.delegate(delegatee).call({from: delegator})
         if (isDelSuccessful) {
-            await voteCon.methods.delegate(delegatee).send({from: delegator});
+            timeCheck = Date.now()
+            gasCheck = (await voteCon.methods.delegate(delegatee).send({from: delegator, gas: GAS_LIMIT})).gasUsed
+            logWriter(`delegate duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 delegator\n`)
             console.log(`Delegator ${delegator} has delegated vote to ${delegatee}`)
             console.log("")
         } else throw `Delegator ${delegator} could not delegate vote to ${delegatee}`
@@ -251,14 +279,17 @@ async function finishRegistration() {
     await new Promise(resolve => setTimeout(resolve, (deadlines.votersFinishSignup - Date.now()) + 1000))
 
     await web3.eth.personal.unlockAccount(admin, "")//unlock Admin account
-    //we need a do nothing function to update block number and block time
-    await voteCon.methods.doNothing().send({from: admin})
+    //we need a do nothing function to update block number and block time (Only needed on local blockchain),
+    //activity on the mainnets and testnets ensure regular block updates
+    await voteCon.methods.doNothing().send({from: admin, gas: GAS_LIMIT})
 
     //admin closes registration once voter registration deadline is reached
     let isRegistrationEnded = await voteCon.methods.finishRegistrationPhase().call({from: admin})
     console.log(`Is registration ended: ${isRegistrationEnded}`)
     if(isRegistrationEnded) {
-        await voteCon.methods.finishRegistrationPhase().send({from: admin, gas: 4200000})
+        timeCheck = Date.now()
+        gasCheck = (await voteCon.methods.finishRegistrationPhase().send({from: admin, gas: GAS_LIMIT})).gasUsed
+        logWriter(`finishRegistrationPhase (reconstructedKeys) duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for ${voters.length} voters\n`)
         console.log('Admin has ended registration')
         console.log(`Election now in state: ${states[await voteCon.methods.state().call({from: admin})]}\n`)
     } else throw `Registration could not be ended`
@@ -276,13 +307,17 @@ async function subComm(voter) {
     //get voter registered and reconstructed keys
     let xG = [conVoter[0][0], conVoter[0][1]]
     let yG = [conVoter[1][0], conVoter[1][1]]
-    let zkp;
+    let zkp
 
     //todo create 1 out of 2 ZKP
     if (noVotes.includes(voter.address)) {
+        timeCheck = Date.now()
         zkp = await cryptoCon.methods.create1outof2ZKPNoVote(xG, yG, voter.w, voter.r, voter.d, voter.x).call({from: voter.address})
+        logWriter(`create1outof2ZKPNoVote LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 voter\n`)
     } else {
+        timeCheck = Date.now()
         zkp = await cryptoCon.methods.create1outof2ZKPYesVote(xG, yG, voter.w, voter.r, voter.d, voter.x).call({from: voter.address})
+        logWriter(`create1outof2ZKPYesVote LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 voter\n`)
     }
     // console.log(`One out of two ZKP: ${JSON.stringify(zkp)}`)
 
@@ -295,12 +330,16 @@ async function subComm(voter) {
 
     // verify 1 out of 2 ZKP
     let index = await voteCon.methods.addressid(voter.address).call({from: voter.address})
+    timeCheck = Date.now()
     let result = await voteCon.methods.verify1outof2ZKP(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2, index).call({from: voter.address})
+    logWriter(`verify1outof2ZKP LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 voter\n`)
     console.log(`ZKP verified: ${JSON.stringify(result)}\n`)
 
     //submit committment
     let hash = await cryptoCon.methods.commitToVote(voter.params, xG, yG, voter.y, voter.a1, voter.b1, voter.a2, voter.b2).call({from: voter.address})
-    await voteCon.methods.submitCommitment(hash).send({from: voter.address,gas: 4200000})
+    timeCheck = Date.now()
+    gasCheck = (await voteCon.methods.submitCommitment(hash).send({from: voter.address,gas: GAS_LIMIT})).gasUsed
+    logWriter(`submitCommitment duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 voter\n`)
 }
 
 async function subDelComm(delegator) {
@@ -323,11 +362,15 @@ async function subDelComm(delegator) {
     let yG = [conDelegator[1][0], conDelegator[1][1]]
 
     //todo create 1 out of 2 ZKP
-    let zkp;
+    let zkp
     if (noVotes.includes(delegatee)) {
+        timeCheck = Date.now()
         zkp = await cryptoCon.methods.create1outof2ZKPNoVote(delegateeVals.xG, yG, delegatorVals.w, delegatorVals.r, delegatorVals.d, delegateeVals.x).call({from: delegatee})
+        logWriter(`create1outof2ZKPNoVote LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 delegator\n`)
     } else {
+        timeCheck = Date.now()
         zkp = await cryptoCon.methods.create1outof2ZKPYesVote(delegateeVals.xG, yG, delegatorVals.w, delegatorVals.r, delegatorVals.d, delegateeVals.x).call({from: delegatee})
+        logWriter(`create1outof2ZKPYesVote LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 delegator\n`)
     }
     // console.log(`One out of two ZKP: ${JSON.stringify(zkp)}`)
 
@@ -341,12 +384,16 @@ async function subDelComm(delegator) {
     // verify 1 out of 2 ZKP
     let delegatorIndex = await voteCon.methods.addressid(delegator).call({from: delegatee})
     console.log(`Delegator index: ${delegatorIndex}`)
+    timeCheck = Date.now()
     let result = await voteCon.methods.verify1outof2ZKP(delegatorVals.params, delegatorVals.y, delegatorVals.a1, delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegatorIndex).call({from: delegatee})
+    logWriter(`verify1outof2ZKP LOCAL CALL duration: ${(Date.now()-timeCheck)}millis for 1 delegator\n`)
     console.log(`ZKP verified: ${JSON.stringify(result)}\n`)
 
     //submit committment
     let hash = await cryptoCon.methods.commitToVote(delegatorVals.params, delegateeVals.xG, yG, delegatorVals.y, delegatorVals.a1, delegatorVals.b1, delegatorVals.a2, delegatorVals.b2).call({from: delegatee})
-    await voteCon.methods.submitCommitment(hash, delegator).send({from: delegatee, gas: 4200000})
+    timeCheck = Date.now()
+    gasCheck = (await voteCon.methods.submitCommitment(hash, delegator).send({from: delegatee, gas: GAS_LIMIT})).gasUsed
+    logWriter(`submitCommitment duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 delegator\n`)
 }
 
 async function submitCommitments() {
@@ -382,8 +429,10 @@ async function subVote(voter) {
     if (
         canVote
     ) {
-        await voteCon.methods.submitVote(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2)
-        .send({from: voter.address, gas: 30000000})// 30 million gas limit set
+        timeCheck = Date.now()
+        gasCheck = (await voteCon.methods.submitVote(voter.params, voter.y, voter.a1, voter.b1, voter.a2, voter.b2)
+        .send({from: voter.address, gas: GAS_LIMIT})).gasUsed
+        logWriter(`submitVote duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 voter\n`)
     } else throw `Failed to submit vote for voter ${voter.address}`
 
     console.log(`Voter ${voter.address} has submitted vote successfully\n`)
@@ -403,10 +452,12 @@ async function subDelVote(delegator) {
             delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegator)
         .call({from: delegatee})
     ) {
-        await voteCon.methods
+        timeCheck = Date.now()
+        gasCheck = (await voteCon.methods
         .submitVote(delegatorVals.params, delegatorVals.y, delegatorVals.a1, 
             delegatorVals.b1, delegatorVals.a2, delegatorVals.b2, delegator)
-        .send({from: delegatee, gas: 30000000})//30 million gas limit set
+        .send({from: delegatee, gas: GAS_LIMIT})).gasUsed
+        logWriter(`submitVote duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for 1 delegator\n`)
     } else throw `Failed to submit vote for delegator ${delegator}`
 
     console.log(`Delegatee ${delegatee} has submitted vote successfully for delegator ${delegator}\n`)
@@ -432,11 +483,21 @@ async function submitVotes() {
 
 async function computeTally() {
     await web3.eth.personal.unlockAccount(admin, "")
-    await voteCon.methods.computeTally().send({ from: admin, gas: 4200000 })
+    timeCheck = Date.now()
+    gasCheck = (await voteCon.methods.computeTally().send({ from: admin, gas: GAS_LIMIT })).gasUsed
+    logWriter(`computeTally duration: ${(Date.now()-timeCheck)}millis and gas used: ${gasCheck} for ${voters.length} voters\n`)
     let numYes = await voteCon.methods.finaltally(0).call({from: admin})
     let numTotal = await voteCon.methods.finaltally(1).call({from: admin})
     console.log(`Final tally: ${numYes} Yes votes out of ${numTotal} total votes\n`)
 
+    console.log(`Election now in state: ${states[await voteCon.methods.state().call({from: admin})]}\n`)
+}
+
+async function resetElection() {
+    await web3.eth.personal.unlockAccount(admin, "")
+    let res = await voteCon.methods.deadlinePassed().call({ from: admin, gas: GAS_LIMIT })
+    await voteCon.methods.deadlinePassed().send({ from: admin, gas: GAS_LIMIT })
+    console.log(`Has election been reset: ${res}\n`)
     console.log(`Election now in state: ${states[await voteCon.methods.state().call({from: admin})]}\n`)
 }
 
@@ -467,6 +528,9 @@ async function conductProtocol() {
 
     //compute tally
     await computeTally()
+
+    //reset election
+    await resetElection()
 }
 
 await conductProtocol()

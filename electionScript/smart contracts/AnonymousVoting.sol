@@ -1,16 +1,17 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
 /**
- * @title ECCMath
+ * @title ECCMathLib
  *
  * Functions for working with integers, curve-points, etc.
  *
  * @author Andreas Olofsson (androlo1980@gmail.com)
+ * @author Witnet Foundation
  */
-library ECCMath {
-    // @author Witnet Foundation
-    //prev version relied on over/underflow
+library ECCMathLib {
+    // From Witnet Foundation lib, previous version relied on int over/underflow
+    ///https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol#:~:text=function-,invMod,-(uint256%20_x
     /// @dev Modular euclidean inverse of a number (mod p).
     /// @param a The number
     /// @param p The modulus
@@ -82,7 +83,7 @@ library ECCMath {
 
 }
 
-library Secp256k1 {
+library Secp256k1Lib {
 
     // TODO separate curve from crypto primitives?
 
@@ -130,28 +131,6 @@ library Secp256k1 {
         isPK = onCurve(a_P);
     }
 
-    // /// @dev See Curve.validateSignature
-    // function validateSignature(bytes32 message, uint[2] calldata rs, uint[2] calldata Q) internal pure returns (bool) {
-    //     uint n = nn;
-    //     uint p = pp;
-    //     if(rs[0] == 0 || rs[0] >= n || rs[1] == 0 || rs[1] > lowSmax)
-    //         return false;
-    //     if (!isPubKey(Q))
-    //         return false;
-
-    //     uint sInv = ECCMath.invmod(rs[1], n);
-    //     uint[3] memory u1G = _mul(mulmod(uint(message), sInv, n), [Gx, Gy]);
-    //     uint[3] memory u2Q = _mul(mulmod(rs[0], sInv, n), Q);
-    //     uint[3] memory P = _add(u1G, u2Q);
-
-    //     if (P[2] == 0)
-    //         return false;
-
-    //     uint Px = ECCMath.invmod(P[2], p); // need Px/Pz^2
-    //     Px = mulmod(P[0], mulmod(Px, Px, p), p);
-    //     return Px % n == rs[0];
-    // }
-
     /// @dev See Curve.compress
     function compress(uint[2] calldata P) internal pure returns (uint8 yBit, uint x) {
         x = P[0];
@@ -162,7 +141,7 @@ library Secp256k1 {
     function decompress(uint8 yBit, uint x) internal pure returns (uint[2] memory P) {
         uint p = pp;
         uint y2 = addmod(mulmod(x, mulmod(x, x, p), p), 7, p);
-        uint y_ = ECCMath.expmod(y2, (p + 1) / 4, p);
+        uint y_ = ECCMathLib.expmod(y2, (p + 1) / 4, p);
         uint cmp = yBit ^ y_ & 1;
         P[0] = x;
         P[1] = (cmp == 0) ? y_ : p - y_;
@@ -327,91 +306,8 @@ library Secp256k1 {
         P[2] = mulmod(2, mulmod(Py, P[2], p), p);
     }
 
-    // // Multiplication dP. P affine, wNAF: w=5
-    // // Params: d, Px, Py
-    // // Output: Jacobian Q
-    // function _mul(uint d, uint[2] memory P) internal pure returns (uint[3] memory Q) {
-    //     uint p = pp;
-    //     if (d == 0)
-    //         return Q; //todo change back to return Q
-    //     uint dwPtr; // points to array of NAF coefficients.
-    //     uint i;
-
-    //     // wNAF 
-    //     assembly {
-    //             let dm := 0
-    //             dwPtr := mload(0x40)
-    //             mstore(0x40, add(dwPtr, 512)) // Should lower this.
-
-    //         for {} eq(iszero(d), 0) {} {
-    //             if eq(iszero(and(d, 1)), 0) {
-    //                 dm := mod(d, 32)
-    //                 mstore8(add(dwPtr, i), dm) // Don"t store as signed - convert when reading.
-    //                 d := add(sub(d, dm), mul(gt(dm, 16), 32))
-    //             }
-    //             d := div(d, 2)
-    //             i := add(i, 1)
-    //         }
-    //     }
-        
-    //     dwPtr = dwPtr;
-
-    //     // Pre calculation
-    //     uint[3][8] memory PREC; // P, 3P, 5P, 7P, 9P, 11P, 13P, 15P
-    //     PREC[0] = [P[0], P[1], 1];
-    //     uint[3] memory X = _double(PREC[0]);
-    //     PREC[1] = _addMixed(X, P);
-    //     PREC[2] = _add(X, PREC[1]);
-    //     PREC[3] = _add(X, PREC[2]);
-    //     PREC[4] = _add(X, PREC[3]);
-    //     PREC[5] = _add(X, PREC[4]);
-    //     PREC[6] = _add(X, PREC[5]);
-    //     PREC[7] = _add(X, PREC[6]);
-
-    //     uint[16] memory INV;
-    //     INV[0] = PREC[1][2];                            // a1
-    //     INV[1] = mulmod(PREC[2][2], INV[0], p);         // a2
-    //     INV[2] = mulmod(PREC[3][2], INV[1], p);         // a3
-    //     INV[3] = mulmod(PREC[4][2], INV[2], p);         // a4
-    //     INV[4] = mulmod(PREC[5][2], INV[3], p);         // a5
-    //     INV[5] = mulmod(PREC[6][2], INV[4], p);         // a6
-    //     INV[6] = mulmod(PREC[7][2], INV[5], p);         // a7
-
-    //     INV[7] = ECCMath.invmod(INV[6], p);             // a7inv
-    //     INV[8] = INV[7];                                // aNinv (a7inv)
-
-    //     INV[15] = mulmod(INV[5], INV[8], p);            // z7inv
-    //     for(uint k = 6; k >= 2; k--) {                  // z6inv to z2inv
-    //         INV[8] = mulmod(PREC[k + 1][2], INV[8], p);
-    //         INV[8 + k] = mulmod(INV[k - 2], INV[8], p);
-    //     }
-    //     INV[9] = mulmod(PREC[2][2], INV[8], p);         // z1Inv
-    //     for(uint k = 0; k < 7; k++) {
-    //         ECCMath.toZ1(PREC[k + 1], INV[k + 9], mulmod(INV[k + 9], INV[k + 9], p), p);
-    //     }
-
-    //     // Mult loop
-    //     while(i > 0) {
-    //         uint dj;
-    //         uint pIdx;
-    //         i--;
-    //         assembly {
-    //             dj := mload(add(dwPtr, i))
-    //         }
-    //         bytes1 djBytes = bytes32(dj)[0];
-    //         dj = uint(uint8(djBytes));
-    //         _doubleM(Q);
-    //         if (dj > 16) {
-    //             pIdx = (31 - dj) / 2; // These are the "negative ones", so invert y.
-    //             _addMixedM(Q, [PREC[pIdx][0], p - PREC[pIdx][1]]);
-    //         }
-    //         else if (dj > 0) {
-    //             pIdx = (dj - 1) / 2;
-    //             _addMixedM(Q, [PREC[pIdx][0], PREC[pIdx][1]]);
-    //         }
-    //     }
-    // }
-
+    // From Witnet Foundation lib
+    ///https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol#:~:text=function-,ecMul,-(
     /// @dev Multiply point (x1, y1, z1) times d in affine coordinates.
     /// @param _k scalar to multiply
     /// @param _x coordinate x of P1
@@ -435,6 +331,8 @@ library Secp256k1 {
       return (x1, y1, z1);
     }
 
+    //From Witnet Foundation
+    ///https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol#:~:text=function-,jacMul,-(
     /// @dev Multiply point (x, y, z) times d.
     /// @param _d scalar to multiply
     /// @param _x coordinate x of P1
@@ -478,6 +376,8 @@ library Secp256k1 {
         return (qx, qy, qz);
     }
 
+    /// From Witnet Foundation
+    /// https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol#:~:text=function-,jacAdd,-(
     /// @dev Adds two points (x1, y1, z1) and (x2 y2, z2).
     /// @param _x1 coordinate x of P1
     /// @param _y1 coordinate y of P1
@@ -532,6 +432,8 @@ library Secp256k1 {
         return(qx, qy, qz);
     }
 
+    /// From Witnet Foundation
+    /// https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol#:~:text=function-,jacDouble,-(
     /// @dev Doubles a points (x, y, z).
     /// @param _x coordinate x of P1
     /// @param _y coordinate y of P1
@@ -594,13 +496,12 @@ contract owned {
  * @title AnonymousVoting
  *  Open Vote Network
  *  A self-talling protocol that supports voter privacy.
+ * Portions of the project have been copied from https://github.com/stonecoldpat/anonymousvoting/blob/master/AnonymousVoting.sol
  *
  *  Author: Patrick McCorry
+ *  Author: Dimeji Sebiotimo
  */
 contract AnonymousVoting is owned {
-
-  //todo use events to alert on notable happenings
-
   // Modulus for public keys
   uint constant pp = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
@@ -664,7 +565,6 @@ contract AnonymousVoting is owned {
   uint public gap; // Minimum amount of time between time stamps.
   address public charity;
 
-  // TODO: Why cant election authority receive the spoils?
   uint public lostdeposit; // This money is collected from non active voters...
 
   enum State { SETUP, SIGNUP, COMMITMENT, VOTE, FINISHED }
@@ -678,12 +578,6 @@ contract AnonymousVoting is owned {
   }
 
   // 2 round anonymous voting protocol
-  // TODO: Right now due to gas limits there is an upper limit
-  // on the number of participants that we can have voting...
-  // I need to split the functions up... so if they cannot
-  // finish their entire workload in 1 transaction, then
-  // it does the maximum. This way we can chain transactions
-  // to complete the job...
   constructor(uint _gap, address _charity) {
     G[0] = Gx;
     G[1] = Gy;
@@ -695,8 +589,6 @@ contract AnonymousVoting is owned {
 
   // Owner of contract sets a whitelist of addresses that are eligible to vote.
   function setEligible(address[] calldata addr) external onlyOwner {
-
-    //todo(Dims): check that elligible + new additions don't go above limit(whatever it will eventually be set at)
     // Sign up the addresses
     for(uint i=0; i<addr.length; i++) {
 
@@ -709,12 +601,11 @@ contract AnonymousVoting is owned {
 
     // New voter limit, if we exceed this, revert
     if(totaleligible > 150) {
-      revert();
+      revert("maximum of 150 voters");
     }
   }
 
   // Owner of contract declares that eligible addresses begin round 1 of the protocol
-  // Time is the number of 'blocks' we must wait until we can move onto round 2.
   function beginSignUp(string calldata _question, bool enableCommitmentPhase, uint _votersFinishSignupPhase, 
     uint _endSignupPhase, uint _endCommitmentPhase, uint _endVotingPhase, uint _endRefundPhase, 
     uint _depositrequired) inState(State.SETUP) external onlyOwner payable returns (bool){
@@ -727,13 +618,10 @@ contract AnonymousVoting is owned {
     // _endCommitmentPhase - One or more voters did not send their commitments in time(Cos of fault intolerant voting)
     // _endVotingPhase - One or more voters did not send their votes in time
     // _endRefundPhase - Provide time for voters to get their money back.(Standard refund time if voting completes)
-    // Why is there no endTally? Because anyone can call it!
 
     // Represented in UNIX time...
-    // TODO: Set to block timestamp...
-    // TODO: Enforce gap to be at least 1 hour.. may break unit testing
     // Make sure 3 people are at least eligible to vote..
-    // Deposit can be zero or more WEI
+    // Deposit is non negative integer
     if(_votersFinishSignupPhase > 0 + gap && //enforce min gap time
      addresses.length >= 3 && //3 or more voters
       _depositrequired >= 0 //non negative deposit
@@ -812,7 +700,7 @@ contract AnonymousVoting is owned {
       uint refund = 0;
 
       // Has the Election Authority missed the signup deadline?
-      // Election Authority will forfeit his deposit.
+      // Election Authority will forfeit their deposit.
       if(state == State.SIGNUP && block.timestamp > endSignupPhase) {
 
          // Nothing to do. All voters are refunded.
@@ -942,12 +830,12 @@ contract AnonymousVoting is owned {
   }
 
   // Called by participants to register their voting public key
-  // Participant mut be eligible, and can only register the first key sent key.
+  // Participant mut be eligible, and can only register the first key sent.
   function register(uint[2] calldata xG, uint[3] calldata vG, uint r) inState(State.SIGNUP) external payable returns (bool) {
 
      // HARD DEADLINE
      if(block.timestamp > votersFinishSignupPhase) {
-       revert('Past registration deadline'); // throw returns the voter's ether, but exhausts their gas.
+       revert('Past registration deadline');
      }
 
     // Make sure the ether being deposited matches what we expect.
@@ -1044,15 +932,15 @@ contract AnonymousVoting is owned {
 
       for(uint i=2; i<totalregistered; i++) {
         if (delegations[voters[i].addr] == address(0x0)) {
-          Secp256k1._addMixedM(afteri, voters[i].registeredkey);
+          Secp256k1Lib._addMixedM(afteri, voters[i].registeredkey);
         } else {
           //If voter at index i has delegated their vote, use the key of the delegatee
           uint delegateIndex = addressid[delegations[voters[i].addr]];
-          Secp256k1._addMixedM(afteri, voters[delegateIndex].registeredkey);
+          Secp256k1Lib._addMixedM(afteri, voters[delegateIndex].registeredkey);
         }
       }
 
-      ECCMath.toZ1(afteri,pp);
+      ECCMathLib.toZ1(afteri,pp);
       voters[0].reconstructedkey[0] = afteri[0];
       voters[0].reconstructedkey[1] = pp - afteri[1];
 
@@ -1065,6 +953,7 @@ contract AnonymousVoting is owned {
           beforei[1] = voters[0].registeredkey[1];
           beforei[2] = 1;
         } else {
+          //If voter at index has delegated their vote, use the key of the delegatee
           uint delegateIndex = addressid[delegations[voters[0].addr]];
           beforei[0] = voters[delegateIndex].registeredkey[0];
           beforei[1] = voters[delegateIndex].registeredkey[1];
@@ -1072,10 +961,11 @@ contract AnonymousVoting is owned {
         }
        } else {
         if (delegations[voters[i-1].addr] == address(0x0)) {
-          Secp256k1._addMixedM(beforei, voters[i-1].registeredkey);
+          Secp256k1Lib._addMixedM(beforei, voters[i-1].registeredkey);
         } else {
+          //If voter at index has delegated their vote, use the key of the delegatee
           uint delegateIndex = addressid[delegations[voters[i-1].addr]];
-          Secp256k1._addMixedM(beforei, voters[delegateIndex].registeredkey);
+          Secp256k1Lib._addMixedM(beforei, voters[delegateIndex].registeredkey);
         }
        }
 
@@ -1083,7 +973,7 @@ contract AnonymousVoting is owned {
        // Otherwise, we need to compute a key.
        // Counting from 0 to n-1...
        if(i==(totalregistered-1)) {
-         ECCMath.toZ1(beforei,pp);
+         ECCMathLib.toZ1(beforei,pp);
          voters[i].reconstructedkey[0] = beforei[0];
          voters[i].reconstructedkey[1] = beforei[1];
        } else {
@@ -1093,22 +983,23 @@ contract AnonymousVoting is owned {
             temp[0] = voters[i].registeredkey[0];
             temp[1] = pp - voters[i].registeredkey[1];
           } else {
+            //If voter at index has delegated their vote, use the key of the delegatee
             uint delegateIndex = addressid[delegations[voters[i].addr]];
             temp[0] = voters[delegateIndex].registeredkey[0];
             temp[1] = pp - voters[delegateIndex].registeredkey[1];
           }
 
           // Grab negation of afteri (did not seem to work with Jacob co-ordinates)
-          Secp256k1._addMixedM(afteri,temp);
-          ECCMath.toZ1(afteri,pp);
+          Secp256k1Lib._addMixedM(afteri,temp);
+          ECCMathLib.toZ1(afteri,pp);
 
           temp[0] = afteri[0];
           temp[1] = pp - afteri[1];
 
           // Now we do beforei - afteri...
-          yG = Secp256k1._addMixed(beforei, temp);
+          yG = Secp256k1Lib._addMixed(beforei, temp);
 
-          ECCMath.toZ1(yG,pp);
+          ECCMathLib.toZ1(yG,pp);
 
           voters[i].reconstructedkey[0] = yG[0];
           voters[i].reconstructedkey[1] = yG[1];
@@ -1126,16 +1017,7 @@ contract AnonymousVoting is owned {
   }
 
   /*
-   * OPTIONAL STAGE: All voters submit the hash of their vote.
-   * Why? The final voter that submits their vote gets to see the tally result
-   * before anyone else. This provides the voter with an additional advantage
-   * compared to all other voters. To get around this issue; we can force all
-   * voters to commit to their vote in advance.... and votes are only revealed
-   * once all voters have committed. This way the final voter has no additional
-   * advantage as they cannot change their vote depending on the tally.
-   * However... we cannot enforce the pre-image to be a hash, and someone could submit
-   * a commitment that is not a vote. This will break the election, but you
-   * will be able to determine who did it (and possibly punish them!).
+   * All voters submit the hash of their vote.
    */
   function submitCommitment(bytes32 h) external inState(State.COMMITMENT) {
 
@@ -1156,6 +1038,7 @@ contract AnonymousVoting is owned {
     }
   }
 
+  //Delegatee submits commitment on behalf of delegator
   function submitCommitment(bytes32 h, address delegator) external inState(State.COMMITMENT) {
     //All voters have a deadline to send their commitment
      require(block.timestamp < endCommitmentPhase, "Commitment phase closed");
@@ -1174,7 +1057,7 @@ contract AnonymousVoting is owned {
      }
   }
 
-  // Given the 1 out of 2 ZKP, and delegator address - record the users vote!
+  // Given the 1 out of 2 ZKP, and delegator address submitted by delegatee - record the users vote!
   function submitVote(uint[4] calldata params, uint[2] calldata y, uint[2] calldata a1,
     uint[2] calldata b1, uint[2] calldata a2, uint[2] calldata b2, address delegator) external inState(State.VOTE) returns (bool) {
 
@@ -1284,8 +1167,8 @@ contract AnonymousVoting is owned {
      return false;
   }
 
-  // Assuming all votes have been submitted. We can leak the tally.
-  // We assume Election Authority performs this function. It could be anyone.
+  // Assuming all votes have been submitted. We can expose the tally.
+  // We assume Election Authority performs this function but It could be anyone.
   // Election Authority gets deposit upon tallying.
   // TODO: Anyone can do this function. Perhaps remove refund code - and force Election Authority
   // to explicit withdraw it? Election cannot reset until he is refunded - so that should be OK
@@ -1311,7 +1194,7 @@ contract AnonymousVoting is owned {
            temp[1] = vote[1];
            temp[2] = 1;
          } else {
-             Secp256k1._addMixedM(temp, vote);
+             Secp256k1Lib._addMixedM(temp, vote);
          }
      }
 
@@ -1351,14 +1234,13 @@ contract AnonymousVoting is owned {
        // There must be a vote. So lets
        // start adding 'G' until we
        // find the result.
-       ECCMath.toZ1(temp,pp);
+       ECCMathLib.toZ1(temp,pp);
        uint[3] memory tempG;
        tempG[0] = G[0];
        tempG[1] = G[1];
        tempG[2] = 1;
 
        // Start adding 'G' and looking for a match i.e exhaustive search. 
-       //todo: maybe we can implement any of the other methods for computing tally
       for(uint i=1; i <= totalregistered; i++) {
         if(temp[0] == tempG[0]) {
           finaltally[0] = i;
@@ -1366,9 +1248,6 @@ contract AnonymousVoting is owned {
           // Election Authority is responsible for calling this....
           // He should not fail his own refund...
           // Make sure tally is computed before refunding...
-          // TODO: Check if this is necessary
-          // If it fails - he can use withdrawRefund()
-          // Election cannot be reset until he is refunded.
           refund = refunds[msg.sender];
           refunds[msg.sender] = 0;
           if (!payable(msg.sender).send(refund)) {
@@ -1377,23 +1256,21 @@ contract AnonymousVoting is owned {
           return;
         }
 
-        //Don't run addition on last loop. Will this if check have a performance hit (gas?) or boost?
+        //Don't run addition on the last loop
         if(i != totalregistered) {
-          Secp256k1._addMixedM(tempG, G);
-          ECCMath.toZ1(tempG,pp);
+          Secp256k1Lib._addMixedM(tempG, G);
+          ECCMathLib.toZ1(tempG,pp);
         }
       }
 
          // Something bad happened. We should never get here....
          // This represents an error message... best telling people
          // As we cannot recover from it anyway.
-         // TODO: Handle this better....
          finaltally[0] = 0;
          finaltally[1] = 0;
 
          // Election Authority is responsible for calling this....
          // He should not fail his own refund...
-         // TODO: Check if this is necessary
          refund = refunds[msg.sender];
          refunds[msg.sender] = 0;
 
@@ -1410,7 +1287,7 @@ contract AnonymousVoting is owned {
   // In the former; everyone gets a refund. In the latter; only active participants get a refund
   // We can assume if the deadline has been missed - then refunds has ALREADY been updated to
   // take that into account. (a transaction is required to indicate a deadline has been missed
-  // and in that transaction - we can penalise the non-active participants. lazy sods!)
+  // and in that transaction - we can penalise the non-active participants. lazy sods!)-LOL
   function withdrawRefund() external inState(State.FINISHED){
 
     uint refund = refunds[msg.sender];
@@ -1419,8 +1296,9 @@ contract AnonymousVoting is owned {
     address delegatee = delegations[msg.sender];
     // If you delegated and the vote has been cast
     if (delegatee != address(0x00) && votecast[msg.sender]) {
+      //Pay Delegatee for their hardwork
       if (!payable(delegatee).send(refund)) {
-       refunds[msg.sender] = refund;
+       refunds[msg.sender] = refund;//Payment failed
       } else {
         // Tell everyone we have issued the refund.
         // Owner is not included in refund counter.
@@ -1429,7 +1307,7 @@ contract AnonymousVoting is owned {
         }
       }
     } else if (!payable(msg.sender).send(refund)) {// All other cases, try to refund
-       refunds[msg.sender] = refund;// If refund fails
+       refunds[msg.sender] = refund;// Refund fails
     } else {
       // Tell everyone we have issued the refund.
       // Owner is not included in refund counter.
@@ -1442,6 +1320,7 @@ contract AnonymousVoting is owned {
     }
   }
 
+  //Delegatee can attempt to withdraw their incentive after voting on behalf of delegator
   function withdrawRefund(address delegator) external inState(State.FINISHED){
 
     require(delegations[delegator] == msg.sender, "Must have been delegated to by delegator");
@@ -1482,7 +1361,7 @@ contract AnonymousVoting is owned {
   function verifyZKP(uint[2] memory xG, uint256 r, uint[3] memory vG) private view returns (bool){
 
       // Check both keys are on the curve.
-      if(!Secp256k1.isPubKey(xG) || !Secp256k1.isPubKey(vG)) {
+      if(!Secp256k1Lib.isPubKey(xG) || !Secp256k1Lib.isPubKey(vG)) {
         return false; //Must be on the curve!
       }
 
@@ -1493,17 +1372,17 @@ contract AnonymousVoting is owned {
       uint x;
       uint y;
       uint z;
-      (x,y,z) = Secp256k1.ecMul(r, G[0], G[1], pp);
+      (x,y,z) = Secp256k1Lib.ecMul(r, G[0], G[1], pp);
       // Get g^{r}, and g^{xc}
       uint[3] memory rG = [x, y, z];
-      (x,y,z) = Secp256k1.ecMul(c, xG[0], xG[1], pp);
+      (x,y,z) = Secp256k1Lib.ecMul(c, xG[0], xG[1], pp);
       uint[3] memory xcG = [x, y, z];
 
       // Add both points together
-      uint[3] memory rGxcG = Secp256k1._add(rG,xcG);
+      uint[3] memory rGxcG = Secp256k1Lib._add(rG,xcG);
 
       // Convert to Affine Co-ordinates
-      ECCMath.toZ1(rGxcG, pp);
+      ECCMathLib.toZ1(rGxcG, pp);
 
       // Verify. Do they match?
       if(rGxcG[0] == vG[0] && rGxcG[1] == vG[1]) {
@@ -1540,8 +1419,8 @@ contract AnonymousVoting is owned {
       }
 
       // Make sure we are only dealing with valid public keys!
-      if(!Secp256k1.isPubKey(xG) || !Secp256k1.isPubKey(yG) || !Secp256k1.isPubKey(y) || !Secp256k1.isPubKey(a1) ||
-         !Secp256k1.isPubKey(b1) || !Secp256k1.isPubKey(a2) || !Secp256k1.isPubKey(b2)) {
+      if(!Secp256k1Lib.isPubKey(xG) || !Secp256k1Lib.isPubKey(yG) || !Secp256k1Lib.isPubKey(y) || !Secp256k1Lib.isPubKey(a1) ||
+         !Secp256k1Lib.isPubKey(b1) || !Secp256k1Lib.isPubKey(a2) || !Secp256k1Lib.isPubKey(b2)) {
          return false;
       }
 
@@ -1550,34 +1429,34 @@ contract AnonymousVoting is owned {
         return false;
       }
 
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[2], G[0], G[1], pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[2], G[0], G[1], pp);
       // a1 =? g^{r1} * x^{d1}
       mR.temp2 = [mR.k,mR.l,mR.m];
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[0], xG[0], xG[1], pp);
-      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
-      ECCMath.toZ1(mR.temp3, pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[0], xG[0], xG[1], pp);
+      mR.temp3 = Secp256k1Lib._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMathLib.toZ1(mR.temp3, pp);
 
       if(a1[0] != mR.temp3[0] || a1[1] != mR.temp3[1]) {
         return false;
       }
 
       //b1 =? h^{r1} * y^{d1} (temp = affine 'y')
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[2], yG[0], yG[1], pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[2], yG[0], yG[1], pp);
       mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[0], y[0], y[1], pp);
-      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
-      ECCMath.toZ1(mR.temp3, pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[0], y[0], y[1], pp);
+      mR.temp3 = Secp256k1Lib._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMathLib.toZ1(mR.temp3, pp);
 
       if(b1[0] != mR.temp3[0] || b1[1] != mR.temp3[1]) {
         return false;
       }
 
       //a2 =? g^{r2} * x^{d2}
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[3], G[0], G[1], pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[3], G[0], G[1], pp);
       mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[1], xG[0], xG[1], pp);
-      mR.temp3 = Secp256k1._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
-      ECCMath.toZ1(mR.temp3, pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[1], xG[0], xG[1], pp);
+      mR.temp3 = Secp256k1Lib._add(mR.temp2, [mR.k,mR.l,mR.m]);//todo fix
+      ECCMathLib.toZ1(mR.temp3, pp);
 
       if(a2[0] != mR.temp3[0] || a2[1] != mR.temp3[1]) {
         return false;
@@ -1593,23 +1472,23 @@ contract AnonymousVoting is owned {
       mR.temp3[2] = 1;
 
       // y-g
-      mR.temp2 = Secp256k1._addMixed(mR.temp3,mR.temp1);
+      mR.temp2 = Secp256k1Lib._addMixed(mR.temp3,mR.temp1);
 
       // Return to affine co-ordinates
-      ECCMath.toZ1(mR.temp2, pp);
+      ECCMathLib.toZ1(mR.temp2, pp);
       mR.temp1[0] = mR.temp2[0];
       mR.temp1[1] = mR.temp2[1];
 
       // (y-g)^{d2}
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[1], mR.temp1[0], mR.temp1[1], pp);
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[1], mR.temp1[0], mR.temp1[1], pp);
       mR.temp2 = [mR.k,mR.l,mR.m];//todo fix
 
       // Now... it is h^{r2} + temp2..
-      (mR.k,mR.l,mR.m) = Secp256k1.ecMul(params[3], yG[0], yG[1], pp);
-      mR.temp3 = Secp256k1._add([mR.k,mR.l,mR.m],mR.temp2);//todo fix
+      (mR.k,mR.l,mR.m) = Secp256k1Lib.ecMul(params[3], yG[0], yG[1], pp);
+      mR.temp3 = Secp256k1Lib._add([mR.k,mR.l,mR.m],mR.temp2);//todo fix
 
       // Convert to Affine Co-ordinates
-      ECCMath.toZ1(mR.temp3, pp);
+      ECCMathLib.toZ1(mR.temp3, pp);
 
       // Should all match up.
       if(b2[0] != mR.temp3[0] || b2[1] != mR.temp3[1]) {

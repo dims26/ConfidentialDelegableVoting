@@ -1,13 +1,13 @@
 pragma solidity ^0.4.10;
 
 /**
- * @title ECCMath_noconflict
+ * @title ECCMathLib
  *
  * Functions for working with integers, curve-points, etc.
  *
  * @author Andreas Olofsson (androlo1980@gmail.com)
  */
-library ECCMath_noconflict {
+library ECCMathLib {
     /// @dev Modular inverse of a (mod p) using euclid.
     /// "a" and "p" must be co-prime.
     /// @param a The number.
@@ -90,7 +90,7 @@ library ECCMath_noconflict {
 
 }
 
-library Secp256k1_noconflict {
+library Secp256k1Lib {
 
     // TODO separate curve from crypto primitives?
 
@@ -147,7 +147,7 @@ library Secp256k1_noconflict {
         if (!isPubKey(Q))
             return false;
 
-        uint sInv = ECCMath_noconflict.invmod(rs[1], n);
+        uint sInv = ECCMathLib.invmod(rs[1], n);
         uint[3] memory u1G = _mul(mulmod(uint(message), sInv, n), [Gx, Gy]);
         uint[3] memory u2Q = _mul(mulmod(rs[0], sInv, n), Q);
         uint[3] memory P = _add(u1G, u2Q);
@@ -155,7 +155,7 @@ library Secp256k1_noconflict {
         if (P[2] == 0)
             return false;
 
-        uint Px = ECCMath_noconflict.invmod(P[2], p); // need Px/Pz^2
+        uint Px = ECCMathLib.invmod(P[2], p); // need Px/Pz^2
         Px = mulmod(P[0], mulmod(Px, Px, p), p);
         return Px % n == rs[0];
     }
@@ -170,7 +170,7 @@ library Secp256k1_noconflict {
     function decompress(uint8 yBit, uint x) internal constant returns (uint[2] P) {
         uint p = pp;
         var y2 = addmod(mulmod(x, mulmod(x, x, p), p), 7, p);
-        var y_ = ECCMath_noconflict.expmod(y2, (p + 1) / 4, p);
+        var y_ = ECCMathLib.expmod(y2, (p + 1) / 4, p);
         uint cmp = yBit ^ y_ & 1;
         P[0] = x;
         P[1] = (cmp == 0) ? y_ : p - y_;
@@ -387,7 +387,7 @@ library Secp256k1_noconflict {
         INV[5] = mulmod(PREC[6][2], INV[4], p);         // a6
         INV[6] = mulmod(PREC[7][2], INV[5], p);         // a7
 
-        INV[7] = ECCMath_noconflict.invmod(INV[6], p);             // a7inv
+        INV[7] = ECCMathLib.invmod(INV[6], p);             // a7inv
         INV[8] = INV[7];                                // aNinv (a7inv)
 
         INV[15] = mulmod(INV[5], INV[8], p);            // z7inv
@@ -397,7 +397,7 @@ library Secp256k1_noconflict {
         }
         INV[9] = mulmod(PREC[2][2], INV[8], p);         // z1Inv
         for(k = 0; k < 7; k++) {
-            ECCMath_noconflict.toZ1(PREC[k + 1], INV[k + 9], mulmod(INV[k + 9], INV[k + 9], p), p);
+            ECCMathLib.toZ1(PREC[k + 1], INV[k + 9], mulmod(INV[k + 9], INV[k + 9], p), p);
         }
 
         // Mult loop
@@ -425,7 +425,7 @@ library Secp256k1_noconflict {
 /*
  * @title LocalCrypto
  * Allow local calls to create and verify zkp.
- *  Author: Patrick McCorry
+ * Author: Patrick McCorry
  */
 contract LocalCrypto {
 
@@ -446,15 +446,7 @@ contract LocalCrypto {
   uint[2] G;
   uint[2] Y;
 
-  event Debug(uint x1, uint x2);
-
   // 2 round anonymous voting protocol
-  // TODO: Right now due to gas limits there is an upper limit
-  // on the number of participants that we can have voting...
-  // I need to split the functions up... so if they cannot
-  // finish their entire workload in 1 transaction, then
-  // it does the maximum. This way we can chain transactions
-  // to complete the job...
   function LocalCrypto() {
     G[0] = Gx;
     G[1] = Gy;
@@ -478,15 +470,15 @@ contract LocalCrypto {
       G[0] = Gx;
       G[1] = Gy;
 
-      if(!Secp256k1_noconflict.isPubKey(xG)) {
+      if(!Secp256k1Lib.isPubKey(xG)) {
           throw; //Must be on the curve!
       }
 
       // Get g^{v}
-      uint[3] memory vG = Secp256k1_noconflict._mul(v, G);//todo change
+      uint[3] memory vG = Secp256k1Lib._mul(v, G);//todo change
 
       // Convert to Affine Co-ordinates
-      ECCMath_noconflict.toZ1(vG, pp);
+      ECCMathLib.toZ1(vG, pp);
 
       // Get c = H(g, g^{x}, g^{v});
       bytes32 b_c = sha256(msg.sender, Gx, Gy, xG, vG);
@@ -528,7 +520,7 @@ contract LocalCrypto {
       G[1] = Gy;
 
       // Check both keys are on the curve.
-      if(!Secp256k1_noconflict.isPubKey(xG) || !Secp256k1_noconflict.isPubKey(vG)) {
+      if(!Secp256k1Lib.isPubKey(xG) || !Secp256k1Lib.isPubKey(vG)) {
         return false; //Must be on the curve!
       }
 
@@ -537,14 +529,14 @@ contract LocalCrypto {
       uint c = uint(b_c);
 
       // Get g^{r}, and g^{xc}
-      uint[3] memory rG = Secp256k1_noconflict._mul(r, G);
-      uint[3] memory xcG = Secp256k1_noconflict._mul(c, xG);
+      uint[3] memory rG = Secp256k1Lib._mul(r, G);
+      uint[3] memory xcG = Secp256k1Lib._mul(c, xG);
 
       // Add both points together
-      uint[3] memory rGxcG = Secp256k1_noconflict._add(rG,xcG);
+      uint[3] memory rGxcG = Secp256k1Lib._add(rG,xcG);
 
       // Convert to Affine Co-ordinates
-      ECCMath_noconflict.toZ1(rGxcG, pp);
+      ECCMathLib.toZ1(rGxcG, pp);
 
       // Verify. Do they match?
       if(rGxcG[0] == vG[0] && rGxcG[1] == vG[1]) {
@@ -560,32 +552,32 @@ contract LocalCrypto {
       uint[2] memory temp_affine2;
 
       // y = h^{x} * g
-      uint[3] memory temp1 = Secp256k1_noconflict._mul(x,yG);//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      uint[3] memory temp1 = Secp256k1Lib._mul(x,yG);
+      ECCMathLib.toZ1(temp1, pp);
 
       // Store y_x and y_y
       res[0] = temp1[0];
       res[1] = temp1[1];
 
       // a1 = g^{w}
-      temp1 = Secp256k1_noconflict._mul(w,G);//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(w,G);
+      ECCMathLib.toZ1(temp1, pp);
 
       // Store a1_x and a1_y
       res[2] = temp1[0];
       res[3] = temp1[1];
 
       // b1 = h^{w} (where h = g^{y})
-      temp1 = Secp256k1_noconflict._mul(w, yG);//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(w, yG);
+      ECCMathLib.toZ1(temp1, pp);
 
       res[4] = temp1[0];
       res[5] = temp1[1];
 
       // a2 = g^{r2} * x^{d2}
-      temp1 = Secp256k1_noconflict._mul(r2,G);//todo change
-      temp1 = Secp256k1_noconflict._add(temp1, Secp256k1_noconflict._mul(d2,xG));//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(r2,G);
+      temp1 = Secp256k1Lib._add(temp1, Secp256k1Lib._mul(d2,xG));
+      ECCMathLib.toZ1(temp1, pp);
 
       res[6] = temp1[0];
       res[7] = temp1[1];
@@ -599,13 +591,13 @@ contract LocalCrypto {
       temp_affine2[1] = res[1];
 
       // We should end up with y^{d2} + g^{d2} .... (but we have the negation of g.. so y-g).
-      temp1 = Secp256k1_noconflict._add(Secp256k1_noconflict._mul(d2,temp_affine2), Secp256k1_noconflict._mul(d2,temp_affine1));//todo change
+      temp1 = Secp256k1Lib._add(Secp256k1Lib._mul(d2,temp_affine2), Secp256k1Lib._mul(d2,temp_affine1));//todo change
 
       // Now... it is h^{r2} + temp2..
-      temp1 = Secp256k1_noconflict._add(Secp256k1_noconflict._mul(r2,yG),temp1);//todo change
+      temp1 = Secp256k1Lib._add(Secp256k1Lib._mul(r2,yG),temp1);//todo change
 
       // Convert to Affine Co-ordinates
-      ECCMath_noconflict.toZ1(temp1, pp);
+      ECCMathLib.toZ1(temp1, pp);
 
       res[8] = temp1[0];
       res[9] = temp1[1];
@@ -642,45 +634,44 @@ contract LocalCrypto {
   }
 
   // random 'w', 'r1', 'd1'
-  // TODO: Make constant
   function create1outof2ZKPYesVote(uint[2] xG, uint[2] yG, uint w, uint r1, uint d1, uint x) returns (uint[10] res, uint[4] res2) {
       // y = h^{x} * g
-      uint[3] memory temp1 = Secp256k1_noconflict._mul(x,yG);//todo change
-      Secp256k1_noconflict._addMixedM(temp1,G);
-      ECCMath_noconflict.toZ1(temp1, pp);
+      uint[3] memory temp1 = Secp256k1Lib._mul(x,yG);//todo change
+      Secp256k1Lib._addMixedM(temp1,G);
+      ECCMathLib.toZ1(temp1, pp);
       res[0] = temp1[0];
       res[1] = temp1[1];
 
       // a1 = g^{r1} * x^{d1}
-      temp1 = Secp256k1_noconflict._mul(r1,G);//todo change
-      temp1 = Secp256k1_noconflict._add(temp1, Secp256k1_noconflict._mul(d1,xG));//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(r1,G);//todo change
+      temp1 = Secp256k1Lib._add(temp1, Secp256k1Lib._mul(d1,xG));//todo change
+      ECCMathLib.toZ1(temp1, pp);
       res[2] = temp1[0];
       res[3] = temp1[1];
 
       // b1 = h^{r1} * y^{d1} (temp = affine 'y')
-      temp1 = Secp256k1_noconflict._mul(r1,yG);//todo change
+      temp1 = Secp256k1Lib._mul(r1,yG);//todo change
 
       // Setting temp to 'y'
       uint[2] memory temp;
       temp[0] = res[0];
       temp[1] = res[1];
 
-      temp1= Secp256k1_noconflict._add(temp1, Secp256k1_noconflict._mul(d1, temp));//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1= Secp256k1Lib._add(temp1, Secp256k1Lib._mul(d1, temp));//todo change
+      ECCMathLib.toZ1(temp1, pp);
       res[4] = temp1[0];
       res[5] = temp1[1];
 
       // a2 = g^{w}
-      temp1 = Secp256k1_noconflict._mul(w,G);//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(w,G);//todo change
+      ECCMathLib.toZ1(temp1, pp);
 
       res[6] = temp1[0];
       res[7] = temp1[1];
 
       // b2 = h^{w} (where h = g^{y})
-      temp1 = Secp256k1_noconflict._mul(w, yG);//todo change
-      ECCMath_noconflict.toZ1(temp1, pp);
+      temp1 = Secp256k1Lib._mul(w, yG);//todo change
+      ECCMathLib.toZ1(temp1, pp);
       res[8] = temp1[0];
       res[9] = temp1[1];
 
@@ -724,8 +715,8 @@ contract LocalCrypto {
       uint[3] memory temp3;
 
       // Make sure we are only dealing with valid public keys!
-      if(!Secp256k1_noconflict.isPubKey(xG) || !Secp256k1_noconflict.isPubKey(yG) || !Secp256k1_noconflict.isPubKey(y) || !Secp256k1_noconflict.isPubKey(a1) ||
-         !Secp256k1_noconflict.isPubKey(b1) || !Secp256k1_noconflict.isPubKey(a2) || !Secp256k1_noconflict.isPubKey(b2)) {
+      if(!Secp256k1Lib.isPubKey(xG) || !Secp256k1Lib.isPubKey(yG) || !Secp256k1Lib.isPubKey(y) || !Secp256k1Lib.isPubKey(a1) ||
+         !Secp256k1Lib.isPubKey(b1) || !Secp256k1Lib.isPubKey(a2) || !Secp256k1Lib.isPubKey(b2)) {
          return false;
       }
 
@@ -735,27 +726,27 @@ contract LocalCrypto {
       }
 
       // a1 =? g^{r1} * x^{d1}
-      temp2 = Secp256k1_noconflict._mul(params[2], G);//todo change
-      temp3 = Secp256k1_noconflict._add(temp2, Secp256k1_noconflict._mul(params[0], xG));//todo change
-      ECCMath_noconflict.toZ1(temp3, pp);
+      temp2 = Secp256k1Lib._mul(params[2], G);//todo change
+      temp3 = Secp256k1Lib._add(temp2, Secp256k1Lib._mul(params[0], xG));//todo change
+      ECCMathLib.toZ1(temp3, pp);
 
       if(a1[0] != temp3[0] || a1[1] != temp3[1]) {
         return false;
       }
 
       //b1 =? h^{r1} * y^{d1} (temp = affine 'y')
-      temp2 = Secp256k1_noconflict._mul(params[2],yG);//todo change
-      temp3 = Secp256k1_noconflict._add(temp2, Secp256k1_noconflict._mul(params[0], y));//todo change
-      ECCMath_noconflict.toZ1(temp3, pp);
+      temp2 = Secp256k1Lib._mul(params[2],yG);//todo change
+      temp3 = Secp256k1Lib._add(temp2, Secp256k1Lib._mul(params[0], y));//todo change
+      ECCMathLib.toZ1(temp3, pp);
 
       if(b1[0] != temp3[0] || b1[1] != temp3[1]) {
         return false;
       }
 
       //a2 =? g^{r2} * x^{d2}
-      temp2 = Secp256k1_noconflict._mul(params[3],G);//todo change
-      temp3 = Secp256k1_noconflict._add(temp2, Secp256k1_noconflict._mul(params[1], xG));//todo change
-      ECCMath_noconflict.toZ1(temp3, pp);
+      temp2 = Secp256k1Lib._mul(params[3],G);//todo change
+      temp3 = Secp256k1Lib._add(temp2, Secp256k1Lib._mul(params[1], xG));//todo change
+      ECCMathLib.toZ1(temp3, pp);
 
       if(a2[0] != temp3[0] || a2[1] != temp3[1]) {
         return false;
@@ -771,21 +762,21 @@ contract LocalCrypto {
       temp3[2] = 1;
 
       // y-g
-      temp2 = Secp256k1_noconflict._addMixed(temp3,temp1);
+      temp2 = Secp256k1Lib._addMixed(temp3,temp1);
 
       // Return to affine co-ordinates
-      ECCMath_noconflict.toZ1(temp2, pp);
+      ECCMathLib.toZ1(temp2, pp);
       temp1[0] = temp2[0];
       temp1[1] = temp2[1];
 
       // (y-g)^{d2}
-      temp2 = Secp256k1_noconflict._mul(params[1],temp1);//todo change
+      temp2 = Secp256k1Lib._mul(params[1],temp1);//todo change
 
       // Now... it is h^{r2} + temp2..
-      temp3 = Secp256k1_noconflict._add(Secp256k1_noconflict._mul(params[3],yG),temp2);//todo change
+      temp3 = Secp256k1Lib._add(Secp256k1Lib._mul(params[3],yG),temp2);//todo change
 
       // Convert to Affine Co-ordinates
-      ECCMath_noconflict.toZ1(temp3, pp);
+      ECCMathLib.toZ1(temp3, pp);
 
       // Should all match up.
       if(b2[0] != temp3[0] || b2[1] != temp3[1]) {
@@ -793,224 +784,5 @@ contract LocalCrypto {
       }
 
       return true;
-    }
-
-    // Expects random factor 'r' and commitment 'b'. Generators are hard-coded into this contract.
-    function createCommitment(uint r, uint b) returns (uint[2]){
-
-      uint[3] memory bG = Secp256k1_noconflict._mul(b,G);
-
-      uint[3] memory rY = Secp256k1_noconflict._mul(r,Y);
-
-      uint[3] memory c = Secp256k1_noconflict._add(bG,rY);
-
-      ECCMath_noconflict.toZ1(c, pp);
-
-      uint[2] memory c_affine;
-      c_affine[0] = c[0];
-      c_affine[1] = c[1];
-
-      // Sanity check that everything worked as expected.
-      if(!Secp256k1_noconflict.isPubKey(c_affine)) {
-          throw; //Must be on the curve!
-      }
-
-      return c_affine;
-    }
-
-    // We need to re-create the commitment and check that it matches c.
-    function openCommitment(uint[2] c, uint r, uint b) returns (bool) {
-
-      uint[2] memory c_computed = createCommitment(r,b);
-
-      // Check that the commitments match...
-      if(c[0] == c_computed[0] && c[1] == c_computed[1]) {
-        return true;
-      }
-
-      return false;
-    }
-
-    // Equality of commitments...
-    // 1. Compute t = r3*Y
-    // 2. Compute h = H(ID, G, Y, C1, C2, t), where G,Y are generators, C1, C2 are both commitments, and t is random factor.
-    // 3. Compute n = h*(r1,r2) + r3.
-    // return t,n.
-    function createEqualityProof(uint r1, uint r2, uint r3, uint[2] c1, uint[2] c2) returns (uint[2] t, uint n) {
-
-      if(!Secp256k1_noconflict.isPubKey(c1)) {
-          throw; //Must be on the curve!
-      }
-
-      if(!Secp256k1_noconflict.isPubKey(c2)) {
-          throw; //Must be on the curve!
-      }
-
-      uint[3] memory r3Y = Secp256k1_noconflict._mul(r3,Y);
-      ECCMath_noconflict.toZ1(r3Y, pp);
-
-      t[0] = r3Y[0];
-      t[1] = r3Y[1];
-
-      // TODO: add msg.sender
-      uint h = uint(sha256(msg.sender, G, Y, c1, c2, t));
-
-      uint subr1r2 = submod(r1, r2);
-      uint modrh = mulmod(subr1r2,h,nn);
-      n = addmod(modrh,r3,nn);
-    }
-
-    // We compute h*(c1-c2) + t
-    function computeFirstHalfEquality(uint[2] c1, uint[2] c2, uint h, uint[2] t) returns (uint[2] left){
-
-      uint[3] memory negative_c2;
-      // Negate the 'y' co-ordinate of C2
-      negative_c2[0] = c2[0];
-      negative_c2[1] = pp - c2[1];
-      negative_c2[2] = 1;
-
-      // c1 - c2
-      uint[3] memory added_commitments_jacob = Secp256k1_noconflict._addMixed(negative_c2,c1);
-
-      // convert to affine points
-      ECCMath_noconflict.toZ1(added_commitments_jacob,pp);
-      uint[2] memory added_commitments;
-      added_commitments[0] = added_commitments_jacob[0];
-      added_commitments[1] = added_commitments_jacob[1];
-
-      // h*(c1-c2) + t
-      uint[3] memory left_jacob = Secp256k1_noconflict._addMixed(Secp256k1_noconflict._mul(h,added_commitments),t);
-      ECCMath_noconflict.toZ1(left_jacob,pp);
-      left[0] = left_jacob[0];
-      left[1] = left_jacob[1];
-
-
-    }
-
-    // Verify equality proof of two pedersen commitments
-    // 1. Compute h = H(ID, G, Y, C1, C2, t), where G,Y are generators, C1, C2 are both commitments, and t is random factor.
-    // 2. Does nY == h*(c1-c2) + t
-    function verifyEqualityProof(uint n,  uint[2] c1, uint[2] c2, uint[2] t) returns (bool) {
-      if(!Secp256k1_noconflict.isPubKey(c1)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(c2)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(t)) { throw; }
-
-      // Time to start trying to verify it... will be moved to another function
-      uint h = uint(sha256(msg.sender, G, Y, c1, c2, t));
-
-      uint[2] memory left = computeFirstHalfEquality(c1,c2,h,t);
-
-      // n * Y
-      uint[3] memory right = Secp256k1_noconflict._mul(n,Y);
-
-      ECCMath_noconflict.toZ1(right, pp);
-
-      if(left[0] == right[0] && left[1] == right[1]) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-    // Create inequality of commitments...
-    // 1. t1 = r3*G, t2 = r4*Y
-    // 2. Compute h = H(ID, G, Y, c1, c2, t1, t2), where G,Y generators, c1,c2 commitments, t1,t2 inequality proof
-    // 3. n1 = h*(b1-b2) + r3, n2 = h*(r1-r2) + r4.
-    // return random factors t1,t2 and proofs n1,n2.
-    function createInequalityProof(uint b1, uint b2, uint r1, uint r2, uint r3, uint r4, uint[2] c1, uint[2] c2) returns (uint[2] t1, uint[2] t2, uint n1, uint n2) {
-
-      if(!Secp256k1_noconflict.isPubKey(c1)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(c2)) { throw; }
-
-      // r3 * G
-      uint[3] memory temp = Secp256k1_noconflict._mul(r3,G);
-      ECCMath_noconflict.toZ1(temp, pp);
-      t1[0] = temp[0];
-      t1[1] = temp[1];
-
-      // r4 * Y
-      temp = Secp256k1_noconflict._mul(r4,Y);
-      ECCMath_noconflict.toZ1(temp, pp);
-      t2[0] = temp[0];
-      t2[1] = temp[1];
-
-      // TODO: add msg.sender
-      uint h = uint(sha256(msg.sender, G, Y, c1, c2, t1, t2));
-
-      // h(b1-b2) + r3
-      n1 = submod(b1,b2);
-      uint helper = mulmod(n1,h,nn);
-      n1 = addmod(helper,r3,nn);
-
-      // h(r1-r2) + r4
-      n2 = submod(r1,r2);
-      helper = mulmod(n2,h,nn);
-      n2 = addmod(helper,r4,nn);
-
-    }
-
-    // We are computing h(c1 - c2) + t2
-    function computeSecondHalfInequality(uint[2] c1, uint[2] c2, uint[2] t2, uint h) returns (uint[3] right) {
-      uint[3] memory negative_c2;
-      // Negate the 'y' co-ordinate of C2
-      negative_c2[0] = c2[0];
-      negative_c2[1] = pp - c2[1];
-      negative_c2[2] = 1;
-
-      // c1 - c2
-      uint[3] memory added_commitments_jacob = Secp256k1_noconflict._addMixed(negative_c2,c1);
-
-      // convert to affine points
-      ECCMath_noconflict.toZ1(added_commitments_jacob,pp);
-      uint[2] memory added_commitments;
-      added_commitments[0] = added_commitments_jacob[0];
-      added_commitments[1] = added_commitments_jacob[1];
-
-      // h(c1-c2)
-      uint[3] memory h_mul_c1c2 = Secp256k1_noconflict._mul(h,added_commitments);
-
-      // right hand side h(c1-c2) + t2
-      right = Secp256k1_noconflict._addMixed(h_mul_c1c2,t2);
-      ECCMath_noconflict.toZ1(right,pp);
-
-    }
-
-    // Verify inequality of commitments
-    // 1. Compute h = H(ID, G, Y, c1, c2, t1, t2), where G,Y generators, c1,c2 commitments, t1,t2 inequality proof
-    // 2. Verify n1G + n2Y = h*(c1-c2) + t1 + t2
-    // 3. Verify n2Y != h*(c1-c2) + t2
-    function verifyInequalityProof(uint[2] c1, uint[2] c2, uint[2] t1, uint[2] t2, uint n1, uint n2) returns (bool) {
-      if(!Secp256k1_noconflict.isPubKey(c1)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(c2)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(t1)) { throw; }
-      if(!Secp256k1_noconflict.isPubKey(t2)) { throw; }
-
-      uint h = uint(sha256(msg.sender, G, Y, c1, c2, t1, t2));
-
-      // h(c1 - c2) + t2
-      uint[3] memory right = computeSecondHalfInequality(c1, c2, t2, h);
-
-      // n2 * Y
-      uint[3] memory n2Y = Secp256k1_noconflict._mul(n2,Y);
-      ECCMath_noconflict.toZ1(n2Y,pp); // convert to affine
-
-      if(n2Y[0] != right[0] && n2Y[1] != right[1]) {
-
-        // h(c1 - c2) + t2 + t1
-        uint[3] memory h_c1c2_t2_t1 = Secp256k1_noconflict._addMixed(right, t1);
-        ECCMath_noconflict.toZ1(h_c1c2_t2_t1,pp); // convert to affine
-        right[0] = h_c1c2_t2_t1[0];
-        right[1] = h_c1c2_t2_t1[1];
-
-        // n1G + n2Y
-        uint[3] memory n1Gn2Y = Secp256k1_noconflict._add(Secp256k1_noconflict._mul(n1, G),n2Y);
-        ECCMath_noconflict.toZ1(n1Gn2Y,pp); // convert to affine
-
-        if(n1Gn2Y[0] == right[0] && n1Gn2Y[1] == right[1]) {
-          return true;
-        }
-      }
-
-      return false;
     }
 }
