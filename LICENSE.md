@@ -1,3 +1,5 @@
+Copyright for portions of project anonymousvoting are held by [Patrick McCorry, 2017] as part of project anonymousvoting. All other copyright for project anonymousvoting are held by [Adedimeji Sebiotimo, 2023].
+
 MIT License
 
 Copyright (c) 2023 Adedimeji Sebiotimo
