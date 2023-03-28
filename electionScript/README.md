@@ -1,5 +1,5 @@
 ## INTRODUCTION
-This project implements secure, confidential and delegatable voting over a network implementing the Ethereum network protocol. This is achieved using elliptical curve cryptography techniques over the secp256k1 elliptic curve. This project is based off of and adapts the open vote network protocol and subsequent [work](https://github.com/stonecoldpat/anonymousvoting) by Patrick McCorry, Siamak F. Shahandashti, and Feng Hao. 
+This project implements secure, confidential and delegatable voting over a network implementing the Ethereum network protocol. This is achieved using elliptical curve cryptography techniques over the secp256k1 elliptic curve. This project is based off of and adapts the open vote network protocol and subsequent [work](https://github.com/stonecoldpat/anonymousvoting) by Patrick McCorry, Siamak F. Shahandashti, and Feng Hao.
 
 There are two main parts
 - Smart contracts written in Solidity (version 0.4.10 for LocalCrypto.sol and version 0.8.17 for AnonymousVoting.sol).
@@ -45,3 +45,6 @@ The electionConfig.txt file specifies the format of the configurable parameters 
                 <address of voter voting NO>, <address of voter voting NO>
 
 Replace each angled bracket pair with the relevant information. If there's no information to specify for any line, leave it blank. **Lines 1,2, and 3 are compulsory**
+
+## LICENSE
+This work is released under the [MIT license](https://opensource.org/license/mit/)
