@@ -1,25 +1,75 @@
-setEligible duration: 24 millis and gas used: 206993 for 3 voters
-beginSignUp duration: 13millis and gas used: 235715
-createZKP LOCAL CALL duration: 115millis for 1 voter
-verifyZKP LOCAL CALL duration: 208millis for 1 voter
-register duration: 347millis and gas used: 1434751 for 1 voter
-createZKP LOCAL CALL duration: 103millis for 1 voter
-verifyZKP LOCAL CALL duration: 195millis for 1 voter
-register duration: 323millis and gas used: 1395672 for 1 voter
-createZKP LOCAL CALL duration: 99millis for 1 voter
+setEligible duration: 83 millis and gas used: 531475 for 10 voters
+beginSignUp duration: 16millis and gas used: 235715
+createZKP LOCAL CALL duration: 166millis for 1 voter
+verifyZKP LOCAL CALL duration: 245millis for 1 voter
+register duration: 364millis and gas used: 1413608 for 1 voter
+createZKP LOCAL CALL duration: 107millis for 1 voter
+verifyZKP LOCAL CALL duration: 204millis for 1 voter
+register duration: 362millis and gas used: 1442542 for 1 voter
+createZKP LOCAL CALL duration: 105millis for 1 voter
+verifyZKP LOCAL CALL duration: 210millis for 1 voter
+register duration: 373millis and gas used: 1412066 for 1 voter
+createZKP LOCAL CALL duration: 112millis for 1 voter
+verifyZKP LOCAL CALL duration: 222millis for 1 voter
+register duration: 352millis and gas used: 1413117 for 1 voter
+createZKP LOCAL CALL duration: 113millis for 1 voter
+verifyZKP LOCAL CALL duration: 219millis for 1 voter
+register duration: 350millis and gas used: 1406931 for 1 voter
+createZKP LOCAL CALL duration: 110millis for 1 voter
+verifyZKP LOCAL CALL duration: 203millis for 1 voter
+register duration: 360millis and gas used: 1425206 for 1 voter
+createZKP LOCAL CALL duration: 105millis for 1 voter
+verifyZKP LOCAL CALL duration: 201millis for 1 voter
+register duration: 343millis and gas used: 1390094 for 1 voter
+createZKP LOCAL CALL duration: 108millis for 1 voter
 verifyZKP LOCAL CALL duration: 192millis for 1 voter
-register duration: 325millis and gas used: 1387057 for 1 voter
-finishRegistrationPhase (reconstructedKeys) duration: 76millis and gas used: 450483 for 3 voters
-create1outof2ZKPYesVote LOCAL CALL duration: 709millis for 1 voter
-verify1outof2ZKP LOCAL CALL duration: 1377millis for 1 voter
+register duration: 321millis and gas used: 1404992 for 1 voter
+createZKP LOCAL CALL duration: 100millis for 1 voter
+verifyZKP LOCAL CALL duration: 189millis for 1 voter
+register duration: 322millis and gas used: 1375786 for 1 voter
+createZKP LOCAL CALL duration: 101millis for 1 voter
+verifyZKP LOCAL CALL duration: 194millis for 1 voter
+register duration: 350millis and gas used: 1408905 for 1 voter
+delegate duration: 8millis and gas used: 81623 for 1 delegator
+finishRegistrationPhase (reconstructedKeys) duration: 340millis and gas used: 1790490 for 10 voters
+create1outof2ZKPYesVote LOCAL CALL duration: 765millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1276millis for 1 voter
 submitCommitment duration: 8millis and gas used: 99486 for 1 voter
-create1outof2ZKPYesVote LOCAL CALL duration: 703millis for 1 voter
-verify1outof2ZKP LOCAL CALL duration: 1322millis for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 687millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1272millis for 1 voter
+submitCommitment duration: 10millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 731millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1281millis for 1 voter
+submitCommitment duration: 9millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 685millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1259millis for 1 voter
+submitCommitment duration: 9millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 698millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1248millis for 1 voter
+submitCommitment duration: 9millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 690millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1278millis for 1 voter
+submitCommitment duration: 10millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 701millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1235millis for 1 voter
+submitCommitment duration: 9millis and gas used: 82386 for 1 voter
+create1outof2ZKPYesVote LOCAL CALL duration: 711millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1402millis for 1 voter
+submitCommitment duration: 7millis and gas used: 82386 for 1 voter
+create1outof2ZKPNoVote LOCAL CALL duration: 852millis for 1 voter
+verify1outof2ZKP LOCAL CALL duration: 1335millis for 1 voter
 submitCommitment duration: 8millis and gas used: 82386 for 1 voter
-create1outof2ZKPYesVote LOCAL CALL duration: 699millis for 1 voter
-verify1outof2ZKP LOCAL CALL duration: 1393millis for 1 voter
-submitCommitment duration: 7millis and gas used: 85409 for 1 voter
-submitVote duration: 1483millis and gas used: 5363645 for 1 voter
-submitVote duration: 1453millis and gas used: 5232515 for 1 voter
-submitVote duration: 1449millis and gas used: 5358414 for 1 voter
-computeTally duration: 60millis and gas used: 320341 for 3 voters
+create1outof2ZKPNoVote LOCAL CALL duration: 796millis for 1 delegator
+verify1outof2ZKP LOCAL CALL duration: 1295millis for 1 delegator
+submitCommitment duration: 8millis and gas used: 85844 for 1 delegator
+submitVote duration: 1339millis and gas used: 5220838 for 1 voter
+submitVote duration: 1388millis and gas used: 5276821 for 1 voter
+submitVote duration: 1338millis and gas used: 5238091 for 1 voter
+submitVote duration: 1347millis and gas used: 5111221 for 1 voter
+submitVote duration: 1347millis and gas used: 5192024 for 1 voter
+submitVote duration: 1370millis and gas used: 5240839 for 1 voter
+submitVote duration: 1309millis and gas used: 5141753 for 1 voter
+submitVote duration: 1352millis and gas used: 5301130 for 1 voter
+submitVote duration: 1310millis and gas used: 5131811 for 1 voter
+submitVote duration: 1347millis and gas used: 5314086 for 1 delegator
+computeTally duration: 158millis and gas used: 773892 for 10 voters

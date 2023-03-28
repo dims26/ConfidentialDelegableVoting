@@ -1,5 +1,5 @@
-<Admin address>
-<Charity address>
-<The gap parameter of the AnonymousVoting smart contract>
-<delegator 1 address>: <delegatee address>,<delegator 2 address>: <delegatee address>
-<address of voter voting NO>, <address of voter voting NO>
+0x92d27ec475bb821bfce931f3c51fa255be9eebac
+0x29c808b9c9393aaf7333653a9e8be899456f7607
+25
+0x3ddfbefc40507e258e5fab1cb49cedb6e19b7d63: 0x0a570d14f1f204ea1ef90a2ab6c456b116f053c4
+0x0a570d14f1f204ea1ef90a2ab6c456b116f053c4
